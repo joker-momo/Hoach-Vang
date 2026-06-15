@@ -507,8 +507,15 @@ const YT_FALLBACK = {
     subscribers: '315K người đăng ký'
 };
 
-// Public CORS proxies (try in order, fall through on failure).
+// CORS proxy chính: Cloudflare Worker tự deploy (xem cloudflare-worker/cors-proxy.js).
+// Dán URL worker vào đây sau khi deploy, vd: "https://cors-proxy.abc.workers.dev".
+const CORS_WORKER_URL = "https://shiny-violet-8bef.voix-momotalk.workers.dev";
+
+// Worker đứng đầu (tin cậy); public proxy chỉ là dự phòng (hay chết/bị chặn).
 const CORS_PROXIES = [
+    ...(CORS_WORKER_URL.includes('YOUR-WORKER')
+        ? []
+        : [url => `${CORS_WORKER_URL}/?url=${encodeURIComponent(url)}`]),
     url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
     url => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
     url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
@@ -867,7 +874,39 @@ async function fetchVietcombankRates() {
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
 
-        // webgia trả số dạng plain text. Cột: [0]=mã, [1]=tên, [2]=mua tiền mặt, [3]=mua CK, [4]=bán tiền mặt.
+        // webgia giấu vài chữ số trong span rỗng + CSS :before { content }.
+        // textContent không lấy được nội dung :before → phải map class → chữ số rồi chèn vào span.
+        const styleMap = {};
+        const styleRegex = /\.([a-z0-9_-]+):before\s*\{\s*content\s*:\s*["']([^"']+)["']\s*\}/g;
+        let m;
+        while ((m = styleRegex.exec(htmlText)) !== null) {
+            let ch = m[2];
+            if (ch.startsWith('\\')) ch = String.fromCharCode(parseInt(ch.slice(1), 16)); // "\32" → "2"
+            styleMap[m[1]] = ch;
+        }
+        doc.querySelectorAll('td span').forEach(span => {
+            for (const cls of span.classList) {
+                if (styleMap[cls] !== undefined) { span.textContent = styleMap[cls]; break; }
+            }
+        });
+
+        // Số ẩn hoàn toàn: ô có thuộc tính nb (hex, bỏ chữ HOA), text hiển thị là mồi "webgia.com".
+        // Tên class che thay đổi mỗi lần tải nên target theo [nb], không theo class cố định.
+        function decodeNb(nbStr) {
+            const cleaned = nbStr.replace(/[A-Z]/g, '');
+            let out = '';
+            for (let i = 0; i < cleaned.length - 1; i += 2) {
+                out += String.fromCharCode(parseInt(cleaned.substr(i, 2), 16));
+            }
+            return out;
+        }
+        doc.querySelectorAll('td[nb]').forEach(td => {
+            const v = td.getAttribute('nb');
+            td.textContent = v ? decodeNb(v) : '-';
+            td.removeAttribute('nb');
+        });
+
+        // Cột: [0]=mã, [1]=tên, [2]=mua tiền mặt, [3]=mua CK, [4]=bán tiền mặt.
         const rates = [];
         doc.querySelectorAll('.table-exchanges tr').forEach(row => {
             const cells = row.querySelectorAll('td');
