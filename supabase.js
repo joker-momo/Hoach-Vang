@@ -127,6 +127,49 @@ const cloud = {
         console.log("Đã nạp thành công 41 đơn vị mặc định lên Supabase!");
       }
     }
+  },
+
+  // =========================================================================
+  // ADMIN AUTHENTICATION
+  // =========================================================================
+
+  // Lấy hash mật khẩu admin từ Supabase
+  async getAdminPasswordHash() {
+    if (!sb) return null;
+    const { data, error } = await sb
+      .from("app_settings")
+      .select("value")
+      .eq("key", "admin_password_hash")
+      .single();
+
+    if (error) {
+      console.error("Lỗi khi lấy mật khẩu admin:", error);
+      return null;
+    }
+    return data?.value || null;
+  },
+
+  // Xác thực mật khẩu admin: so sánh trực tiếp với giá trị trên Supabase
+  async verifyAdminPassword(plainPassword) {
+    if (!sb) return false;
+    const storedPassword = await this.getAdminPasswordHash();
+    if (!storedPassword) return false;
+    return plainPassword === storedPassword;
+  },
+
+  // Cập nhật mật khẩu admin mới
+  async updateAdminPassword(newPassword) {
+    if (!sb) return false;
+
+    const { error } = await sb
+      .from("app_settings")
+      .upsert({ key: "admin_password_hash", value: newPassword, updated_at: new Date().toISOString() }, { onConflict: "key" });
+
+    if (error) {
+      console.error("Lỗi khi cập nhật mật khẩu admin:", error);
+      return false;
+    }
+    return true;
   }
 };
 

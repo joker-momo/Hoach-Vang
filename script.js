@@ -391,6 +391,7 @@ let currentFilter = 'all';
 let searchQuery = '';
 let currentSort = 'popularity';
 let isAdminModeActive = false;
+let isAdminAuthenticated = false;
 let currentLayout = localStorage.getItem('goldLayout') || 'grid';
 
 const providerGrid = document.getElementById('providerGrid');
@@ -438,6 +439,16 @@ const priceModeRadios = document.getElementsByName('priceMode');
 const manualPriceSection = document.getElementById('manualPriceSection');
 const addProductRowBtn = document.getElementById('addProductRowBtn');
 const productRowsContainer = document.getElementById('productRowsContainer');
+
+// Admin Login Elements
+const adminLoginModal = document.getElementById('adminLoginModal');
+const adminLoginForm = document.getElementById('adminLoginForm');
+const adminLoginCloseBtn = document.getElementById('adminLoginCloseBtn');
+const adminLoginCancelBtn = document.getElementById('adminLoginCancelBtn');
+const adminPasswordInput = document.getElementById('adminPasswordInput');
+const adminLoginError = document.getElementById('adminLoginError');
+const togglePasswordVisibility = document.getElementById('togglePasswordVisibility');
+const adminLogoutBtn = document.getElementById('adminLogoutBtn');
 
 // ==========================================================================
 // 3. INITIALIZATION & LOGIC
@@ -487,6 +498,117 @@ async function initApp() {
     // Bind Event Listeners
     setupEventListeners();
     lucide.createIcons();
+
+    // Fetch YouTube channel info (non-blocking)
+    fetchYouTubeChannelInfo();
+}
+
+// ==========================================================================
+// YOUTUBE CHANNEL INFO (RSS + CORS Proxy)
+// ==========================================================================
+const YT_CHANNEL_ID = 'UCZGuIENfrzqyMQszkFxEPaA';
+const YT_CHANNEL_HANDLE = '@MinhFAT';
+const YT_RSS_URL = `https://www.youtube.com/feeds/videos.xml?channel_id=${YT_CHANNEL_ID}`;
+const YT_CHANNEL_PAGE = `https://www.youtube.com/${YT_CHANNEL_HANDLE}`;
+
+const YT_FALLBACK = {
+    name: 'Minh FAT',
+    avatar: 'https://yt3.googleusercontent.com/HzEPQaZZlF9WtjM8PkTHkfQ3JHqr6DxHYAfYym1TZCdZ5VYGQTzqQj0eDHkVIpz05AeTysVl=s176-c-k-c0x00ffffff-no-rj',
+    description: 'Kênh tin tức tài chính, kinh tế, đời sống cập nhật hàng ngày'
+};
+
+const CORS_PROXIES = [
+    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+];
+
+async function fetchYouTubeChannelInfo() {
+    // 1. Kiểm tra cache trong localStorage
+    const cacheKey = 'yt_channel_info_cache';
+    try {
+        const cachedData = localStorage.getItem(cacheKey);
+        if (cachedData) {
+            const parsed = JSON.parse(cachedData);
+            const now = Date.now();
+            const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+            if (now - parsed.cachedAt < sevenDaysInMs && parsed.name && parsed.avatar) {
+                console.log('Sử dụng thông tin kênh YouTube từ cache (localStorage)...');
+                applyYouTubeChannelInfo(parsed.name, parsed.avatar, parsed.description);
+                return;
+            }
+        }
+    } catch (e) {
+        console.error('Lỗi đọc cache YouTube từ localStorage:', e);
+    }
+
+    let name = YT_FALLBACK.name;
+    let avatar = YT_FALLBACK.avatar;
+    let description = YT_FALLBACK.description;
+    let fetchSuccess = false;
+
+    for (const proxyFn of CORS_PROXIES) {
+        try {
+            // 1. Fetch RSS feed → lấy tên kênh
+            const rssResp = await fetch(proxyFn(YT_RSS_URL), { signal: AbortSignal.timeout(8000) });
+            if (!rssResp.ok) continue;
+            const xmlText = await rssResp.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+            const authorName = xmlDoc.querySelector('author > name')?.textContent;
+            if (authorName) name = authorName;
+            fetchSuccess = true;
+
+            // 2. Fetch channel page → lấy avatar (og:image) + mô tả (og:description)
+            try {
+                const pageResp = await fetch(proxyFn(YT_CHANNEL_PAGE), { signal: AbortSignal.timeout(8000) });
+                if (pageResp.ok) {
+                    const html = await pageResp.text();
+                    const imgMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/);
+                    if (imgMatch) avatar = imgMatch[1];
+                    const descMatch = html.match(/<meta\s+property="og:description"\s+content="([^"]+)"/);
+                    if (descMatch) description = descMatch[1];
+                }
+            } catch (e) { /* avatar fallback */ }
+
+            break; // Thành công, thoát vòng lặp proxy
+        } catch (e) {
+            continue; // Thử proxy tiếp theo
+        }
+    }
+
+    // Cập nhật DOM
+    applyYouTubeChannelInfo(name, avatar, description);
+
+    // Lưu cache nếu fetch thành công
+    if (fetchSuccess) {
+        try {
+            localStorage.setItem(cacheKey, JSON.stringify({
+                name,
+                avatar,
+                description,
+                cachedAt: Date.now()
+            }));
+            console.log('Đã lưu thông tin kênh YouTube mới vào cache (localStorage).');
+        } catch (e) {
+            console.error('Không thể lưu cache YouTube vào localStorage:', e);
+        }
+    }
+}
+
+function applyYouTubeChannelInfo(name, avatar, description) {
+    const nameEl = document.getElementById('ytPromoName');
+    const descEl = document.getElementById('ytPromoDesc');
+    const avatarEl = document.getElementById('ytPromoAvatar');
+
+    if (nameEl) {
+        nameEl.innerHTML = `${name} <svg class="yt-verified-badge" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+    }
+    if (descEl) {
+        descEl.textContent = description;
+    }
+    if (avatarEl) {
+        avatarEl.innerHTML = `<img src="${avatar}" alt="${name}" loading="lazy">`;
+    }
 }
 
 // Setup event listeners
@@ -556,11 +678,31 @@ function setupEventListeners() {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeModal();
+            closeAdminLoginModal();
         }
     });
 
-    // Admin Mode toggle
-    adminToggle.addEventListener('click', toggleAdminMode);
+    // Admin Mode toggle — now gated by authentication
+    adminToggle.addEventListener('click', handleAdminToggleClick);
+
+    // Admin Login Modal events
+    adminLoginForm.addEventListener('submit', handleAdminLogin);
+    adminLoginCloseBtn.addEventListener('click', closeAdminLoginModal);
+    adminLoginCancelBtn.addEventListener('click', closeAdminLoginModal);
+    adminLoginModal.addEventListener('click', (e) => {
+        if (e.target === adminLoginModal) closeAdminLoginModal();
+    });
+
+    // Toggle password visibility
+    togglePasswordVisibility.addEventListener('click', () => {
+        const isPassword = adminPasswordInput.type === 'password';
+        adminPasswordInput.type = isPassword ? 'text' : 'password';
+        togglePasswordVisibility.querySelector('.eye-show').style.display = isPassword ? 'none' : '';
+        togglePasswordVisibility.querySelector('.eye-hide').style.display = isPassword ? '' : 'none';
+    });
+
+    // Admin Logout
+    adminLogoutBtn.addEventListener('click', handleAdminLogout);
 
     // Price Mode change
     priceModeRadios.forEach(radio => {
@@ -682,9 +824,11 @@ function renderProviders(data = goldProviders) {
     emptyState.classList.add('hidden');
     providerGrid.style.display = '';
 
-    data.forEach(provider => {
+    data.forEach((provider, index) => {
+        const stt = index + 1;
         const cardHtml = `
             <div class="provider-card glass-panel" data-id="${provider.id}">
+                <div class="card-stt-badge">${stt}</div>
                 <div class="card-admin-actions">
                     <button class="admin-action-btn edit" title="Sửa thông tin" aria-label="Sửa">
                         <i data-lucide="edit-2"></i>
@@ -718,6 +862,12 @@ function renderProviders(data = goldProviders) {
         `;
         providerGrid.insertAdjacentHTML('beforeend', cardHtml);
     });
+
+    // Update total count
+    const totalCountNum = document.getElementById('totalCountNum');
+    if (totalCountNum) {
+        totalCountNum.textContent = data.length;
+    }
 
     // Re-initialize Lucide icons for dynamically added elements
     lucide.createIcons();
@@ -1234,6 +1384,17 @@ function getBrandSpecificPrices(provider) {
 // 10. CRUD ADMINISTRATION LOGIC
 // ==========================================================================
 
+// Xử lý khi nhấn nút ⚙️ Admin Toggle
+function handleAdminToggleClick() {
+    if (!isAdminAuthenticated) {
+        // Chưa xác thực → mở modal đăng nhập
+        openAdminLoginModal();
+    } else {
+        // Đã xác thực → toggle chế độ admin bình thường
+        toggleAdminMode();
+    }
+}
+
 function toggleAdminMode() {
     isAdminModeActive = !isAdminModeActive;
     if (isAdminModeActive) {
@@ -1243,7 +1404,88 @@ function toggleAdminMode() {
         document.body.classList.remove('admin-mode-active');
         adminToggle.classList.remove('admin-active-btn');
     }
-    filterAndRender(); // Re-render to show/hide "Add Card" and edit/delete overlay buttons
+    filterAndRender();
+}
+
+// Mở modal đăng nhập Admin
+function openAdminLoginModal() {
+    adminPasswordInput.value = '';
+    adminLoginError.classList.add('hidden');
+    adminLoginModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => adminPasswordInput.focus(), 100);
+}
+
+// Đóng modal đăng nhập Admin
+function closeAdminLoginModal() {
+    adminLoginModal.classList.add('hidden');
+    document.body.style.overflow = '';
+    adminPasswordInput.value = '';
+    adminLoginError.classList.add('hidden');
+}
+
+// Xử lý đăng nhập Admin
+async function handleAdminLogin(e) {
+    e.preventDefault();
+    const password = adminPasswordInput.value;
+    if (!password) return;
+
+    // Disable submit button while verifying
+    const submitBtn = adminLoginForm.querySelector('.admin-login-submit-btn');
+    const originalContent = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i data-lucide="loader-2" style="width:16px;height:16px;animation:spin 1s linear infinite"></i> Đang xác thực...';
+    lucide.createIcons({ nodes: [submitBtn] });
+
+    try {
+        let isValid = false;
+        if (window.cloud && window.cloud.ready) {
+            isValid = await window.cloud.verifyAdminPassword(password);
+        }
+
+        if (isValid) {
+            isAdminAuthenticated = true;
+            document.body.classList.add('admin-authenticated');
+            // Thêm chấm xanh chỉ báo đã xác thực
+            if (!adminToggle.querySelector('.admin-authenticated-indicator')) {
+                const dot = document.createElement('span');
+                dot.className = 'admin-authenticated-indicator';
+                adminToggle.appendChild(dot);
+            }
+            closeAdminLoginModal();
+            // Tự động bật admin mode sau khi đăng nhập
+            if (!isAdminModeActive) toggleAdminMode();
+        } else {
+            // Hiện thông báo sai mật khẩu
+            adminLoginError.classList.remove('hidden');
+            adminPasswordInput.value = '';
+            adminPasswordInput.focus();
+            // Re-trigger shake animation
+            adminLoginError.style.animation = 'none';
+            void adminLoginError.offsetWidth;
+            adminLoginError.style.animation = '';
+        }
+    } catch (err) {
+        console.error('Lỗi xác thực admin:', err);
+        adminLoginError.querySelector('span').textContent = 'Lỗi kết nối. Vui lòng thử lại.';
+        adminLoginError.classList.remove('hidden');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalContent;
+        lucide.createIcons({ nodes: [submitBtn] });
+    }
+}
+
+// Xử lý đăng xuất Admin
+function handleAdminLogout() {
+    isAdminAuthenticated = false;
+    isAdminModeActive = false;
+    document.body.classList.remove('admin-authenticated', 'admin-mode-active');
+    adminToggle.classList.remove('admin-active-btn');
+    // Xóa chấm xanh chỉ báo
+    const dot = adminToggle.querySelector('.admin-authenticated-indicator');
+    if (dot) dot.remove();
+    filterAndRender();
 }
 
 function addProductRow(name = '', buy = '', sell = '') {

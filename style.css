@@ -1553,6 +1553,221 @@ body {
 }
 
 /* ==========================================================================
+   Card STT (Sequential Number) Badge
+   ========================================================================== */
+.card-stt-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--gold-gradient);
+    color: #0B0F19;
+    font-size: 11px;
+    font-weight: 800;
+    font-family: var(--font-heading);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 4;
+    box-shadow: 0 2px 8px var(--gold-glow);
+    line-height: 1;
+}
+
+/* ==========================================================================
+   Total Count Bar
+   ========================================================================== */
+.total-count-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    width: fit-content;
+}
+
+.total-count-bar i {
+    width: 16px;
+    height: 16px;
+    color: var(--gold-primary);
+}
+
+.total-count-bar strong {
+    color: var(--gold-primary);
+    font-weight: 800;
+    font-size: 14px;
+}
+
+/* ==========================================================================
+   YouTube Promo Banner
+   ========================================================================== */
+.yt-promo-section {
+    max-width: 900px;
+    margin: -10px auto 30px;
+    padding: 0 20px;
+}
+
+.yt-promo-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px 28px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    border: 1px solid rgba(255, 0, 0, 0.2);
+    text-decoration: none;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.yt-promo-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(255, 0, 0, 0.2), 0 0 0 1px rgba(255, 0, 0, 0.3);
+    border-color: rgba(255, 0, 0, 0.4);
+}
+
+.yt-promo-glow {
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(255, 0, 0, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+    animation: ytGlowPulse 3s ease-in-out infinite;
+}
+
+@keyframes ytGlowPulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.15); }
+}
+
+.yt-promo-avatar {
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid rgba(255, 0, 0, 0.4);
+    box-shadow: 0 4px 16px rgba(255, 0, 0, 0.3);
+    animation: ytIconBounce 2s ease-in-out infinite;
+}
+
+.yt-promo-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.yt-avatar-skeleton {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.05) 75%);
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@keyframes ytIconBounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+}
+
+.yt-verified-badge {
+    width: 18px;
+    height: 18px;
+    color: #3ea6ff;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+.yt-promo-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.yt-promo-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: rgba(255, 0, 0, 0.2);
+    color: #FF6B6B;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.yt-promo-content h3 {
+    font-family: var(--font-heading);
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 4px;
+}
+
+.yt-promo-content p {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.yt-promo-cta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #FF0000 0%, #cc0000 100%);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(255, 0, 0, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.yt-promo-card:hover .yt-promo-cta {
+    transform: translateX(4px);
+    box-shadow: 0 6px 20px rgba(255, 0, 0, 0.4);
+}
+
+.yt-promo-cta i {
+    width: 16px;
+    height: 16px;
+}
+
+@media (max-width: 640px) {
+    .yt-promo-card {
+        flex-direction: column;
+        text-align: center;
+        padding: 20px;
+        gap: 14px;
+    }
+    .yt-promo-cta {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ==========================================================================
    CRUD Administration Panel Styles
    ========================================================================== */
 .admin-active-btn {
@@ -1780,7 +1995,7 @@ body.admin-mode-active .add-provider-card {
 /* Admin actions alignment inside row */
 .provider-grid.list-layout .provider-card .card-admin-actions {
     position: static;
-    display: flex;
+    display: none;
     gap: 6px;
     opacity: 1;
     transform: none;
@@ -1789,6 +2004,10 @@ body.admin-mode-active .add-provider-card {
     box-shadow: none;
     padding: 0;
     margin-right: 4px;
+}
+
+body.admin-mode-active .provider-grid.list-layout .provider-card .card-admin-actions {
+    display: flex;
 }
 
 .provider-grid.list-layout .provider-card .admin-action-btn {
@@ -1901,3 +2120,275 @@ body.admin-mode-active .add-provider-card {
         padding: 16px;
     }
 }
+
+/* ==========================================================================
+   Admin Login Modal Styles
+   ========================================================================== */
+.admin-login-container {
+    max-width: 420px;
+    padding: 40px 32px 32px;
+    text-align: center;
+    animation: adminModalSlideIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes adminModalSlideIn {
+    from { opacity: 0; transform: translateY(30px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.admin-login-header {
+    margin-bottom: 28px;
+}
+
+.admin-login-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--gold-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 18px;
+    box-shadow: 0 8px 24px var(--gold-glow);
+    animation: adminIconPulse 2s ease-in-out infinite;
+}
+
+@keyframes adminIconPulse {
+    0%, 100% { box-shadow: 0 8px 24px var(--gold-glow); }
+    50% { box-shadow: 0 12px 36px var(--gold-glow), 0 0 0 8px rgba(212, 175, 55, 0.1); }
+}
+
+.admin-login-icon i {
+    width: 28px;
+    height: 28px;
+    color: #0B0F19;
+}
+
+.admin-login-header h2 {
+    font-family: var(--font-heading);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.admin-login-header p {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.admin-login-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.admin-input-icon {
+    position: absolute;
+    left: 14px;
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
+    pointer-events: none;
+    z-index: 1;
+    transition: color var(--transition-fast);
+}
+
+.admin-login-input-wrap input {
+    width: 100%;
+    padding: 14px 48px 14px 44px;
+    border-radius: 14px;
+    border: 2px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 500;
+    font-family: var(--font-primary);
+    outline: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.admin-login-input-wrap input:focus {
+    border-color: var(--gold-primary);
+    box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.12);
+}
+
+.admin-login-input-wrap input:focus ~ .admin-input-icon {
+    color: var(--gold-primary);
+}
+
+.admin-eye-btn {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition-fast);
+}
+
+.admin-eye-btn:hover {
+    color: var(--gold-primary);
+}
+
+.admin-eye-btn i {
+    width: 18px;
+    height: 18px;
+}
+
+.admin-login-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: var(--danger);
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    animation: errorShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+.admin-login-error i {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+@keyframes errorShake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-6px); }
+    30% { transform: translateX(6px); }
+    45% { transform: translateX(-4px); }
+    60% { transform: translateX(4px); }
+    75% { transform: translateX(-2px); }
+    90% { transform: translateX(2px); }
+}
+
+.admin-login-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.admin-login-actions .modal-btn {
+    flex: 1;
+    justify-content: center;
+}
+
+.admin-login-submit-btn {
+    gap: 6px !important;
+}
+
+/* Admin authenticated indicator on toggle button */
+.admin-authenticated-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #22c55e;
+    border: 2px solid var(--bg-primary);
+    animation: indicatorPulse 2s ease-in-out infinite;
+}
+
+@keyframes indicatorPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+#adminToggle {
+    position: relative;
+}
+
+/* Admin Logout button style */
+.admin-logout-btn {
+    display: none;
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 8px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all var(--transition-fast);
+}
+
+.admin-logout-btn:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.admin-logout-btn i {
+    width: 18px;
+    height: 18px;
+}
+
+body.admin-authenticated .admin-logout-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ==========================================================================
+   TradingView Widget Section
+   ========================================================================== */
+.block-gpx-tradingview {
+    margin: 40px auto 24px;
+    padding: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm);
+    width: 100%;
+    box-sizing: border-box;
+    backdrop-filter: blur(10px);
+}
+
+.tv-default-container {
+    height: 550px;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: #ffffff;
+}
+
+.tv-link {
+    margin-top: 12px;
+    text-align: center;
+}
+
+.tv-href {
+    color: var(--gold-primary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color var(--transition-fast);
+}
+
+.tv-href:hover {
+    color: var(--gold-dark);
+    text-decoration: underline;
+}
+
+/* Responsive adjustment for chart height */
+@media (max-width: 768px) {
+    .block-gpx-tradingview {
+        padding: 16px;
+        margin-top: 24px;
+    }
+    .tv-default-container {
+        height: 400px;
+    }
+}
+
