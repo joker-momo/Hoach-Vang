@@ -2393,36 +2393,13 @@ body.admin-authenticated .admin-logout-btn {
 }
 
 /* ==========================================================================
-   Directory 2-Column Sidebar Layout & Vietcombank Rates Table
+   Vietcombank Exchange Rates Table Section (Centered at the Bottom)
    ========================================================================== */
-.app-main-grid {
-    display: grid;
-    grid-template-columns: 1fr 380px;
-    gap: 28px;
-    align-items: flex-start;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 24px;
-}
-
-.hero-section {
-    grid-column: 1;
-}
-
-.yt-promo-section {
-    grid-column: 1;
-}
-
-.directory-section {
-    grid-column: 1;
-}
-
-.directory-sidebar {
-    grid-column: 2;
-    grid-row: 1 / span 3; /* Spans next to hero, yt-promo, and directory sections */
-    position: sticky;
-    top: 24px; /* Align near viewport top when scrolling */
-    z-index: 10;
+.vcb-rates-section {
+    margin: 32px auto 0;
+    width: 100%;
+    max-width: 800px; /* Restrict width for readable desktop layout */
+    box-sizing: border-box;
 }
 
 .vcb-rates-card {
@@ -2648,42 +2625,5 @@ body.admin-authenticated .admin-logout-btn {
     color: #fff;
 }
 
-/* Layout adjustments on medium & small screens */
-@media (max-width: 991px) {
-    .app-main-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        grid-template-areas:
-            "hero"
-            "yt"
-            "sidebar"
-            "directory";
-        gap: 20px;
-        padding: 0 16px;
-    }
-    
-    .hero-section {
-        grid-area: hero;
-        grid-column: auto;
-    }
-    
-    .yt-promo-section {
-        grid-area: yt;
-        grid-column: auto;
-    }
-    
-    .directory-sidebar {
-        grid-area: sidebar;
-        grid-column: auto;
-        grid-row: auto;
-        position: static;
-        width: 100%;
-    }
-    
-    .directory-section {
-        grid-area: directory;
-        grid-column: auto;
-    }
-}
 
 
