@@ -401,13 +401,6 @@ const filterTabs = document.querySelectorAll('.filter-tab');
 const sortSelect = document.getElementById('sortSelect');
 const emptyState = document.getElementById('emptyState');
 
-// Converter elements
-const goldAmountInput = document.getElementById('goldAmount');
-const goldUnitSelect = document.getElementById('goldUnit');
-const resGram = document.getElementById('resGram');
-const resOunce = document.getElementById('resOunce');
-const resVnd = document.getElementById('resVnd');
-
 // Theme toggle
 const themeToggle = document.getElementById('themeToggle');
 
@@ -482,18 +475,18 @@ async function initApp() {
     updateComputedPrices();
     renderProviders();
     changeLayout(currentLayout);
-    renderTicker();
-    renderPriceTable();
     updateClock();
-    updateConversion();
-    
+
     // Start timers
     setInterval(updateClock, 1000);
-    setInterval(autoScrollTicker, 50); // Ticker scrolling
-    
+
     // Fetch actual real-time prices initially and every 60 seconds (Anti-Mock)
     fetchRealTimePrices();
     setInterval(fetchRealTimePrices, 60000);
+    
+    // Fetch Vietcombank Exchange Rates initially and every 30 seconds (Auto Update)
+    fetchVietcombankRates();
+    setInterval(fetchVietcombankRates, 30000);
     
     // Bind Event Listeners
     setupEventListeners();
@@ -611,13 +604,13 @@ function applyYouTubeChannelInfo(name, avatar, description, subscribers) {
     const subsEl = document.getElementById('ytPromoSubsText');
 
     if (nameEl) {
-        nameEl.innerHTML = `${name} <svg class="yt-verified-badge" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+        nameEl.innerHTML = `${escapeHtml(name)} <svg class="yt-verified-badge" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
     }
     if (descEl) {
         descEl.textContent = description;
     }
     if (avatarEl) {
-        avatarEl.innerHTML = `<img src="${avatar}" alt="${name}" loading="lazy">`;
+        avatarEl.innerHTML = `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(name)}" loading="lazy">`;
     }
     if (subsEl) {
         subsEl.textContent = subscribers;
@@ -657,14 +650,6 @@ function setupEventListeners() {
         currentSort = e.target.value;
         filterAndRender();
     });
-
-    // Converter inputs
-    if (goldAmountInput) {
-        goldAmountInput.addEventListener('input', updateConversion);
-    }
-    if (goldUnitSelect) {
-        goldUnitSelect.addEventListener('change', updateConversion);
-    }
 
     // Layout toggle buttons
     const layoutGridBtn = document.getElementById('layoutGridBtn');
@@ -851,16 +836,16 @@ function renderProviders(data = goldProviders) {
                     </button>
                 </div>
                 <div class="card-header">
-                    <div class="brand-avatar" style="background: ${provider.color}">
-                        ${provider.acronym}
+                    <div class="brand-avatar" style="background: ${escapeHtml(provider.color)}">
+                        ${escapeHtml(provider.acronym)}
                     </div>
                     <span class="tag-badge ${provider.category}">
                         ${provider.category === 'enterprise' ? 'Doanh nghiệp' : provider.category === 'bank' ? 'Ngân hàng' : 'Trang tin'}
                     </span>
                 </div>
                 <div class="card-body">
-                    <h3>${provider.name}</h3>
-                    <p>${provider.description}</p>
+                    <h3>${escapeHtml(provider.name)}</h3>
+                    <p>${escapeHtml(provider.description)}</p>
                 </div>
                 <div class="card-footer">
                     <div class="status-indicator">
@@ -929,91 +914,280 @@ function toggleClearButton() {
 }
 
 // ==========================================================================
-// 5. LIVE TICKER & PRICE TABLE
+// VIETCOMBANK EXCHANGE RATES (webgia.com Scraper & Decoder)
 // ==========================================================================
+const VCB_RATES_URL = 'https://webgia.com/ty-gia/vietcombank/';
+let isVcbExpanded = false;
 
-function renderTicker() {
-    const tickerContainer = document.getElementById('tickerContainer');
-    if (!tickerContainer) return;
-    tickerContainer.innerHTML = '';
+async function fetchVietcombankRates() {
+    const container = document.getElementById('vcbRatesContainer');
+    if (!container) return;
 
-    const items = [
-        { name: "SJC Miếng", price: formatVndTael(goldRates.sjc.sell), change: goldRates.sjc.change, dir: goldRates.sjc.direction },
-        { name: "DOJI Miếng", price: formatVndTael(goldRates.doji.sell), change: goldRates.doji.change, dir: goldRates.doji.direction },
-        { name: "PNJ Miếng", price: formatVndTael(goldRates.pnj.sell), change: goldRates.pnj.change, dir: goldRates.pnj.direction },
-        { name: "Vàng Nhẫn 9999", price: formatVndTael(goldRates.ring9999.sell), change: goldRates.ring9999.change, dir: goldRates.ring9999.direction },
-        { name: "Thế giới (Ounce)", price: `$${goldRates.world.sell}`, change: goldRates.world.change, dir: goldRates.world.direction }
-    ];
-
-    // Duplicate list to ensure infinite scroll illusion
-    const extendedItems = [...items, ...items];
-
-    extendedItems.forEach((item, index) => {
-        const changeSign = item.change >= 0 ? '+' : '';
-        const changePercent = (Math.abs(item.change) / 1000000).toFixed(2); // Convert to Million VND representation
-        const formattedChange = item.name.includes("Thế giới") ? `${changeSign}${item.change}` : `${changeSign}${changePercent} Tr`;
-
-        const itemHtml = `
-            <div class="ticker-item">
-                <span class="ticker-item-name">${item.name}:</span>
-                <span class="ticker-item-price">${item.price}</span>
-                <span class="ticker-item-change ${item.dir}">
-                    <i data-lucide="${item.dir === 'up' ? 'trending-up' : 'trending-down'}"></i>
-                    ${formattedChange}
-                </span>
+    const hasData = container.querySelector('.vcb-table') !== null;
+    if (!hasData) {
+        container.innerHTML = `
+            <div class="vcb-loading">
+                <div class="vcb-spinner"></div>
+                <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">Đang tải dữ liệu tỷ giá...</p>
             </div>
         `;
-        tickerContainer.insertAdjacentHTML('beforeend', itemHtml);
-    });
+    }
 
-    lucide.createIcons();
+    let htmlText = '';
+    let fetchSuccess = false;
+
+    for (const proxyFn of CORS_PROXIES) {
+        try {
+            const resp = await fetch(proxyFn(VCB_RATES_URL), { signal: AbortSignal.timeout(8000) });
+            if (resp.ok) {
+                htmlText = await resp.text();
+                if (htmlText.startsWith('{') && htmlText.includes('"contents":')) {
+                    const parsed = JSON.parse(htmlText);
+                    htmlText = parsed.contents || '';
+                }
+                if (htmlText.includes('table-exchanges')) {
+                    fetchSuccess = true;
+                    break;
+                }
+            }
+        } catch (e) {
+            console.warn(`Thất bại khi lấy tỷ giá VCB qua proxy:`, e);
+        }
+    }
+
+    if (!fetchSuccess || !htmlText) {
+        if (!hasData) {
+            container.innerHTML = `
+                <div class="vcb-error">
+                    <i data-lucide="alert-triangle" style="width: 24px; height: 24px; color: var(--danger);"></i>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">Không thể tải dữ liệu từ webgia.com</p>
+                    <button class="vcb-retry-btn" onclick="fetchVietcombankRates()">Thử lại</button>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+        return;
+    }
+
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText, 'text/html');
+
+        const styleMap = {};
+        const styleRegex = /\.([a-z0-9_-]+):before\s*\{\s*content\s*:\s*["']([^"']+)["']\s*\}/g;
+        let match;
+        while ((match = styleRegex.exec(htmlText)) !== null) {
+            const className = match[1];
+            let contentVal = match[2];
+            if (contentVal.startsWith('\\')) {
+                const hexVal = contentVal.substring(1);
+                contentVal = String.fromCharCode(parseInt(hexVal, 16));
+            }
+            styleMap[className] = contentVal;
+        }
+
+        const spans = doc.querySelectorAll('td span');
+        spans.forEach(span => {
+            for (const className of span.classList) {
+                if (styleMap[className] !== undefined) {
+                    span.textContent = styleMap[className];
+                    break;
+                }
+            }
+        });
+
+        function decodeNb(nbStr) {
+            if (!nbStr) return '-';
+            const cleaned = nbStr.replace(/[A-Z]/g, '');
+            let decoded = '';
+            for (let i = 0; i < cleaned.length - 1; i += 2) {
+                const hex = cleaned.substr(i, 2);
+                decoded += String.fromCharCode(parseInt(hex, 16));
+            }
+            return decoded;
+        }
+
+        const wgvnvCells = doc.querySelectorAll('td.wgvnv');
+        wgvnvCells.forEach(td => {
+            const nbVal = td.getAttribute('nb');
+            if (nbVal) {
+                td.textContent = decodeNb(nbVal);
+            } else {
+                td.textContent = '-';
+            }
+            td.classList.remove('wgvnv');
+            td.removeAttribute('nb');
+        });
+
+        const rates = [];
+        const rows = doc.querySelectorAll('.table-exchanges tbody tr');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 5) {
+                if (cells[0].getAttribute('colspan') === '5') {
+                    return;
+                }
+
+                const codeAnchor = cells[0].querySelector('a');
+                let code = '';
+                if (codeAnchor) {
+                    const span = codeAnchor.querySelector('span:not(.cur-icon)');
+                    code = span ? span.textContent.trim() : codeAnchor.textContent.trim();
+                } else {
+                    code = cells[0].textContent.trim();
+                }
+
+                const name = cells[1].textContent.trim();
+                const buyCash = cells[2].textContent.trim();
+                const sellCash = cells[4].textContent.trim();
+
+                if (code && name) {
+                    rates.push({ code, name, buyCash, sellCash });
+                }
+            }
+        });
+
+        const updateTd = doc.querySelector('.table-exchanges tbody tr td[colspan="5"]');
+        let updateTime = '';
+        if (updateTd) {
+            const text = updateTd.textContent.trim();
+            const timeMatch = text.match(/Cập nhật lúc\s+(\d{2}:\d{2}:\d{2}\s+\d{2}\/\d{2}\/\d{4})/i);
+            if (timeMatch) {
+                updateTime = timeMatch[1].trim();
+            }
+        }
+
+        if (rates.length > 0) {
+            renderVcbTable(rates, updateTime);
+        } else {
+            throw new Error('No rates parsed');
+        }
+
+    } catch (e) {
+        console.error('Lỗi phân tích cú pháp HTML tỷ giá VCB:', e);
+        if (!hasData) {
+            container.innerHTML = `
+                <div class="vcb-error">
+                    <i data-lucide="alert-triangle" style="width: 24px; height: 24px; color: var(--danger);"></i>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">Lỗi xử lý dữ liệu tỷ giá</p>
+                    <button class="vcb-retry-btn" onclick="fetchVietcombankRates()">Thử lại</button>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+    }
 }
 
-function renderPriceTable() {
-    const tbody = document.getElementById('priceTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+function renderVcbTable(rates, updateTime) {
+    const container = document.getElementById('vcbRatesContainer');
+    if (!container) return;
 
-    const items = [
-        { type: "SJC Vàng Miếng 99.99", buy: goldRates.sjc.buy, sell: goldRates.sjc.sell, change: goldRates.sjc.change, dir: goldRates.sjc.direction },
-        { type: "DOJI Vàng Miếng 99.99", buy: goldRates.doji.buy, sell: goldRates.doji.sell, change: goldRates.doji.change, dir: goldRates.doji.direction },
-        { type: "PNJ Vàng Trơn 99.99", buy: goldRates.pnj.buy, sell: goldRates.pnj.sell, change: goldRates.pnj.change, dir: goldRates.pnj.direction },
-        { type: "Vàng Nhẫn 24K (99.99%)", buy: goldRates.ring9999.buy, sell: goldRates.ring9999.sell, change: goldRates.ring9999.change, dir: goldRates.ring9999.direction },
-        { type: "Vàng Trang Sức 18K (75%)", buy: Math.round(goldRates.ring9999.buy * 0.75), sell: Math.round(goldRates.ring9999.sell * 0.75), change: Math.round(goldRates.ring9999.change * 0.75), dir: goldRates.ring9999.direction }
-    ];
+    const FLAG_MAP = {
+        'USD': '🇺🇸', 'EUR': '🇪🇺', 'GBP': '🇬🇧', 'JPY': '🇯🇵',
+        'AUD': '🇦🇺', 'CAD': '🇨🇦', 'CHF': '🇨🇭', 'CNY': '🇨🇳',
+        'DKK': '🇩🇰', 'HKD': '🇭🇰', 'INR': '🇮🇳', 'KRW': '🇰🇷',
+        'KWD': '🇰🇼', 'MYR': '🇲🇾', 'NOK': '🇳🇴', 'RUB': '🇷🇺',
+        'SAR': '🇸🇦', 'SEK': '🇸🇪', 'SGD': '🇸🇬', 'THB': '🇹🇭',
+        'NZD': '🇳🇿', 'TWD': '🇹🇼'
+    };
 
-    items.forEach(item => {
-        const changeSign = item.change >= 0 ? '+' : '';
-        const displayChange = (item.change / 1000).toLocaleString('vi-VN');
-        const rowHtml = `
-            <tr>
-                <td><strong>${item.type}</strong></td>
-                <td>${formatVndRaw(item.buy)}</td>
-                <td class="color-gold">${formatVndRaw(item.sell)}</td>
+    let tableHtml = `
+        <div class="vcb-table-wrapper">
+            <table class="vcb-table">
+                <thead>
+                    <tr>
+                        <th>Ngoại tệ</th>
+                        <th style="text-align: right;">Mua</th>
+                        <th style="text-align: right;">Bán</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    rates.forEach((rate, index) => {
+        const flag = FLAG_MAP[rate.code] || '💵';
+        const isHidden = index >= 8 ? 'class="hidden-row"' : '';
+        tableHtml += `
+            <tr ${isHidden}>
                 <td>
-                    <span class="price-change-cell ${item.dir}">
-                        <i data-lucide="${item.dir === 'up' ? 'trending-up' : 'trending-down'}"></i>
-                        ${changeSign}${displayChange}đ
-                    </span>
+                    <div class="vcb-currency-cell">
+                        <div class="vcb-currency-code-wrap">
+                            <span class="vcb-flag">${flag}</span>
+                            <span>${rate.code}</span>
+                        </div>
+                        <div class="vcb-currency-name">${rate.name}</div>
+                    </div>
                 </td>
+                <td class="vcb-val-buy">${rate.buyCash}</td>
+                <td class="vcb-val-sell">${rate.sellCash}</td>
             </tr>
         `;
-        tbody.insertAdjacentHTML('beforeend', rowHtml);
     });
 
-    lucide.createIcons();
-}
+    tableHtml += `
+                </tbody>
+            </table>
+        </div>
+    `;
 
-// Auto scroll ticker container
-function autoScrollTicker() {
-    const tickerContainer = document.getElementById('tickerContainer');
-    if (!tickerContainer) return;
-    
-    tickerContainer.scrollLeft += 1;
-    
-    const maxScroll = tickerContainer.scrollWidth / 2;
-    if (tickerContainer.scrollLeft >= maxScroll) {
-        tickerContainer.scrollLeft = 0;
+    if (rates.length > 8) {
+        const btnText = isVcbExpanded ? 'Thu gọn' : 'Xem thêm ngoại tệ';
+        const btnIcon = isVcbExpanded ? 'chevron-up' : 'chevron-down';
+        tableHtml += `
+            <button type="button" class="vcb-toggle-btn" id="vcbToggleBtn">
+                <span>${btnText}</span>
+                <i data-lucide="${btnIcon}" style="width: 14px; height: 14px;"></i>
+            </button>
+        `;
+    }
+
+    tableHtml += `
+        <div class="vcb-footer">
+            <span>VCB • ${updateTime || 'Real-time'}</span>
+            <a href="https://webgia.com/ty-gia/vietcombank/" target="_blank" rel="noopener noreferrer" class="vcb-footer-link">
+                Nguồn: WebGia
+            </a>
+        </div>
+    `;
+
+    container.innerHTML = tableHtml;
+    lucide.createIcons();
+
+    const toggleBtn = document.getElementById('vcbToggleBtn');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            isVcbExpanded = !isVcbExpanded;
+            const rows = container.querySelectorAll('.vcb-table tbody tr');
+            rows.forEach((row, index) => {
+                if (index >= 8) {
+                    if (isVcbExpanded) {
+                        row.classList.remove('hidden-row');
+                    } else {
+                        row.classList.add('hidden-row');
+                    }
+                }
+            });
+            
+            const spanText = toggleBtn.querySelector('span');
+            if (spanText) {
+                spanText.textContent = isVcbExpanded ? 'Thu gọn' : 'Xem thêm ngoại tệ';
+            }
+            
+            const iconWrap = toggleBtn.querySelector('i');
+            if (iconWrap) {
+                iconWrap.setAttribute('data-lucide', isVcbExpanded ? 'chevron-up' : 'chevron-down');
+                lucide.createIcons();
+            }
+        });
+    }
+
+    if (isVcbExpanded) {
+        const rows = container.querySelectorAll('.vcb-table tbody tr');
+        rows.forEach((row, index) => {
+            if (index >= 8) {
+                row.classList.remove('hidden-row');
+            }
+        });
     }
 }
 
@@ -1065,11 +1239,8 @@ async function fetchRealTimePrices() {
             updateComputedPrices();
             
             // Re-render components
-            renderTicker();
-            renderPriceTable();
             filterAndRender();
-            updateConversion();
-            
+
             // Update UI status to show Live API Connected
             const clockEl = document.getElementById('timeString');
             if (clockEl && !document.getElementById('apiLiveIndicator')) {
@@ -1084,56 +1255,6 @@ async function fetchRealTimePrices() {
     } catch (error) {
         console.warn("Không thể kết nối API giá vàng thực tế, đang sử dụng dữ liệu ngoại tuyến:", error);
     }
-}
-
-// ==========================================================================
-// 6. GOLD UNIT CONVERTER
-// ==========================================================================
-function updateConversion() {
-    if (!goldAmountInput) return;
-    const amountVal = parseFloat(goldAmountInput.value);
-    const selectedUnit = goldUnitSelect.value;
-
-    if (isNaN(amountVal) || amountVal <= 0) {
-        resGram.textContent = "0.00 g";
-        resOunce.textContent = "0.00 oz";
-        resVnd.textContent = "0 ₫";
-        return;
-    }
-
-    let grams = 0;
-    let ounces = 0;
-    let taels = 0;
-
-    switch(selectedUnit) {
-        case 'tael':
-            taels = amountVal;
-            grams = amountVal * 37.5;
-            ounces = amountVal * 1.20565;
-            break;
-        case 'chi':
-            taels = amountVal / 10;
-            grams = amountVal * 3.75;
-            ounces = amountVal * 0.120565;
-            break;
-        case 'gram':
-            grams = amountVal;
-            taels = amountVal / 37.5;
-            ounces = amountVal / 31.103478;
-            break;
-        case 'ounce':
-            ounces = amountVal;
-            grams = amountVal * 31.103478;
-            taels = grams / 37.5;
-            break;
-    }
-
-    const sjcPricePerTael = goldRates.sjc.sell;
-    const totalVnd = taels * sjcPricePerTael;
-
-    resGram.textContent = `${grams.toFixed(2)} g`;
-    resOunce.textContent = `${ounces.toFixed(3)} oz`;
-    resVnd.textContent = formatVndRaw(Math.round(totalVnd));
 }
 
 // ==========================================================================
@@ -1180,13 +1301,20 @@ function updateClock() {
     clockEl.textContent = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
 }
 
-function formatVndTael(price) {
-    const millions = price / 1000000;
-    return `${millions.toFixed(2)} triệu/lượng`;
-}
-
 function formatVndRaw(price) {
     return `${price.toLocaleString('vi-VN')} ₫`;
+}
+
+// Escape user/cloud-supplied strings before injecting via innerHTML.
+// Safe for both element text and double-quoted attribute values.
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // ==========================================================================
@@ -1208,7 +1336,7 @@ function openModal(providerId) {
     modalContent.innerHTML = `
         <div class="spinner-container">
             <div class="spinner"></div>
-            <div class="spinner-text">Đang kết nối tới cổng thông tin ${provider.acronym}...</div>
+            <div class="spinner-text">Đang kết nối tới cổng thông tin ${escapeHtml(provider.acronym)}...</div>
         </div>
     `;
 
@@ -1224,7 +1352,7 @@ function openModal(providerId) {
 
             priceRowsHtml += `
                 <tr>
-                    <td><strong>${item.name}</strong></td>
+                    <td><strong>${escapeHtml(item.name)}</strong></td>
                     <td>${formatVndRaw(item.buy)}</td>
                     <td class="color-gold">${formatVndRaw(item.sell)}</td>
                     <td>
@@ -1239,22 +1367,22 @@ function openModal(providerId) {
 
         modalContent.innerHTML = `
             <div class="modal-brand-header">
-                <div class="brand-avatar" style="background: ${provider.color}">
-                    ${provider.acronym}
+                <div class="brand-avatar" style="background: ${escapeHtml(provider.color)}">
+                    ${escapeHtml(provider.acronym)}
                 </div>
                 <div class="modal-brand-info">
-                    <h3>${provider.name}</h3>
+                    <h3>${escapeHtml(provider.name)}</h3>
                     <p>${provider.category === 'enterprise' ? 'Doanh nghiệp Vàng bạc' : provider.category === 'bank' ? 'Ngân hàng Thương mại' : 'Trang tin tổng hợp'}</p>
                 </div>
             </div>
-            
+
             <div class="modal-desc-box">
-                ${provider.description}
+                ${escapeHtml(provider.description)}
             </div>
-            
+
             <div class="modal-price-title">
                 <i data-lucide="trending-up"></i>
-                <span>Bảng Giá Vàng Trực Tuyến (${provider.acronym})</span>
+                <span>Bảng Giá Vàng Trực Tuyến (${escapeHtml(provider.acronym)})</span>
             </div>
             
             <div class="price-table-container modal-price-table">
@@ -1275,7 +1403,7 @@ function openModal(providerId) {
             
             <div class="modal-actions">
                 <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Đóng</button>
-                <a href="${provider.url}" target="_blank" rel="noopener noreferrer" class="modal-btn modal-btn-primary">
+                <a href="${escapeHtml(provider.url)}" target="_blank" rel="noopener noreferrer" class="modal-btn modal-btn-primary">
                     <span>Mở Web Chính Thức</span>
                     <i data-lucide="external-link"></i>
                 </a>

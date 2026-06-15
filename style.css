@@ -2392,3 +2392,298 @@ body.admin-authenticated .admin-logout-btn {
     }
 }
 
+/* ==========================================================================
+   Directory 2-Column Sidebar Layout & Vietcombank Rates Table
+   ========================================================================== */
+.app-main-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 28px;
+    align-items: flex-start;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.hero-section {
+    grid-column: 1;
+}
+
+.yt-promo-section {
+    grid-column: 1;
+}
+
+.directory-section {
+    grid-column: 1;
+}
+
+.directory-sidebar {
+    grid-column: 2;
+    grid-row: 1 / span 3; /* Spans next to hero, yt-promo, and directory sections */
+    position: sticky;
+    top: 24px; /* Align near viewport top when scrolling */
+    z-index: 10;
+}
+
+.vcb-rates-card {
+    padding: 24px;
+}
+
+.vcb-table-wrapper {
+    overflow-x: auto;
+    margin-top: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.vcb-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 13px;
+}
+
+.vcb-table th {
+    font-weight: 700;
+    color: var(--text-muted);
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    background-color: var(--table-header-bg);
+}
+
+.vcb-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.vcb-table tbody tr:nth-child(even) {
+    background-color: var(--table-row-even);
+}
+
+.vcb-table tbody tr:hover {
+    background-color: rgba(255, 107, 0, 0.05);
+}
+
+.vcb-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Flag & Currency layout */
+.vcb-currency-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.vcb-currency-code-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.vcb-flag {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.vcb-currency-name {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding-left: 26px;
+}
+
+/* Value cells styling */
+.vcb-val-buy {
+    font-weight: 600;
+    color: var(--success);
+    text-align: right;
+    font-family: var(--font-heading);
+}
+
+.vcb-val-sell {
+    font-weight: 600;
+    color: var(--danger);
+    text-align: right;
+    font-family: var(--font-heading);
+}
+
+.vcb-table th:nth-child(2),
+.vcb-table th:nth-child(3) {
+    text-align: right;
+}
+
+/* Loading & Error States */
+.vcb-loading, .vcb-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.vcb-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid rgba(255, 107, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--gold-primary);
+    animation: vcb-spin 0.8s linear infinite;
+}
+
+@keyframes vcb-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Pulse Animation for Auto Update Indicator */
+.vcb-update-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--input-bg);
+    padding: 4px 10px;
+    border-radius: 99px;
+    border: 1px solid var(--border-color);
+}
+
+.vcb-pulse {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    animation: vcb-pulse-anim 2s infinite;
+}
+
+@keyframes vcb-pulse-anim {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+/* Show more / collapse button styles */
+.vcb-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 12px;
+    margin-top: 16px;
+    background: var(--tab-inactive-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.vcb-toggle-btn:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+}
+
+.vcb-table tr.hidden-row {
+    display: none;
+}
+
+.vcb-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    font-size: 11px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px;
+}
+
+.vcb-footer-link {
+    color: var(--gold-primary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+    font-weight: 500;
+}
+
+.vcb-footer-link:hover {
+    color: var(--gold-dark);
+    text-decoration: underline;
+}
+
+.vcb-retry-btn {
+    margin-top: 12px;
+    background: var(--gold-primary);
+    color: #0B0F19;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.vcb-retry-btn:hover {
+    background-color: var(--gold-dark);
+    color: #fff;
+}
+
+/* Layout adjustments on medium & small screens */
+@media (max-width: 991px) {
+    .app-main-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "hero"
+            "yt"
+            "sidebar"
+            "directory";
+        gap: 20px;
+        padding: 0 16px;
+    }
+    
+    .hero-section {
+        grid-area: hero;
+        grid-column: auto;
+    }
+    
+    .yt-promo-section {
+        grid-area: yt;
+        grid-column: auto;
+    }
+    
+    .directory-sidebar {
+        grid-area: sidebar;
+        grid-column: auto;
+        grid-row: auto;
+        position: static;
+        width: 100%;
+    }
+    
+    .directory-section {
+        grid-area: directory;
+        grid-column: auto;
+    }
+}
+
+
