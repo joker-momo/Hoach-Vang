@@ -515,7 +515,7 @@ const YT_FALLBACK = {
     name: 'Minh FAT',
     avatar: 'https://yt3.googleusercontent.com/HzEPQaZZlF9WtjM8PkTHkfQ3JHqr6DxHYAfYym1TZCdZ5VYGQTzqQj0eDHkVIpz05AeTysVl=s176-c-k-c0x00ffffff-no-rj',
     description: 'Kênh tin tức tài chính, kinh tế, đời sống cập nhật hàng ngày',
-    subscribers: '1.25K người đăng ký'
+    subscribers: '315K người đăng ký'
 };
 
 const CORS_PROXIES = [
