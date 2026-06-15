@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cổng Thông Tin Giá Vàng Hoạch Vàng | 20 Đơn Vị Uy Tín</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Tổng hợp danh sách 20 đơn vị, trang web cung cấp thông tin giá vàng uy tín hàng đầu tại thị trường Việt Nam. Giao diện trực quan, tìm kiếm nhanh chóng và công cụ quy đổi tiện lợi.">
+    <meta name="keywords" content="giá vàng, giá vàng hôm nay, sjc, doji, pnj, bảo tín minh châu, bảng giá vàng, tra cứu giá vàng, cổng giá vàng việt nam">
+    <meta name="author" content="Hoạch Vàng">
+    
+    <!-- Google Fonts: Outfit (headings) & Inter (body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body class="light-theme">
+    <!-- Background glow elements -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <div class="app-container">
+        <!-- HEADER / NAVIGATION -->
+        <header class="app-header">
+            <div class="header-logo">
+                <div class="logo-icon">
+                    <i data-lucide="trending-up"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>HOẠCH VÀNG<span>.VN</span></h1>
+                    <p>CỔNG THÔNG TIN GIÁ VÀNG</p>
+                </div>
+            </div>
+            
+            <div class="header-actions">
+                <div class="live-clock" id="liveClock">
+                    <i data-lucide="clock"></i>
+                    <span id="timeString">Đang tải...</span>
+                </div>
+                <button class="theme-toggle-btn" id="themeToggle" aria-label="Chuyển đổi giao diện">
+                    <i data-lucide="sun" class="sun-icon"></i>
+                    <i data-lucide="moon" class="moon-icon"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- HERO SECTION -->
+        <section class="hero-section">
+            <div class="hero-content">
+                <span class="badge">
+                    <i data-lucide="shield-check"></i> 100% Nguồn Chính Thức
+                </span>
+                <h2>Tra Cứu Giá Vàng Toàn Diện</h2>
+                <p>Danh bạ tổng hợp 20 thương hiệu vàng miếng, trang sức và ngân hàng thương mại được cấp phép giao dịch vàng miếng uy tín nhất tại Việt Nam.</p>
+            </div>
+            
+            <!-- Live Ticker (Simulated dynamic data for rich visual experience) -->
+            <div class="ticker-wrapper">
+                <div class="ticker-title">
+                    <span class="pulse-dot"></span>
+                    <span>Tỷ Giá Tham Khảo:</span>
+                </div>
+                <div class="ticker-container" id="tickerContainer">
+                    <!-- Dynamic items inserted via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- UTILITY SUB-SECTION (Live market overview & Converter) -->
+        <section class="utility-section">
+            <!-- Mock Live Price Dashboard -->
+            <div class="glass-panel price-widget">
+                <div class="panel-header">
+                    <div class="title-with-icon">
+                        <i data-lucide="trending-up" class="color-gold"></i>
+                        <h3>Diễn Biến Thị Trường</h3>
+                    </div>
+                    <span class="panel-subtitle">Hôm nay</span>
+                </div>
+                <div class="price-table-container">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Loại Vàng</th>
+                                <th>Mua Vào</th>
+                                <th>Bán Ra</th>
+                                <th>Biến Động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="priceTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Gold Converter Widget -->
+            <div class="glass-panel converter-widget">
+                <div class="panel-header">
+                    <div class="title-with-icon">
+                        <i data-lucide="calculator" class="color-gold"></i>
+                        <h3>Bộ Quy Đổi Đơn Vị</h3>
+                    </div>
+                    <span class="panel-subtitle">Công cụ hỗ trợ tính toán nhanh</span>
+                </div>
+                <div class="converter-form">
+                    <div class="input-group">
+                        <label for="goldAmount">Số lượng</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="goldAmount" value="1" min="0.1" step="0.1">
+                            <select id="goldUnit">
+                                <option value="tael">Lượng (Cây)</option>
+                                <option value="chi">Chỉ</option>
+                                <option value="gram">Gram</option>
+                                <option value="ounce">Ounce (troy)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="converter-results">
+                        <div class="result-row">
+                            <span class="result-label">Quy đổi sang Gram:</span>
+                            <span class="result-value" id="resGram">37.50 g</span>
+                        </div>
+                        <div class="result-row">
+                            <span class="result-label">Quy đổi sang Ounce:</span>
+                            <span class="result-value" id="resOunce">1.206 oz</span>
+                        </div>
+                        <div class="result-row highlight">
+                            <span class="result-label">Giá trị ước tính (SJC):</span>
+                            <span class="result-value color-gold" id="resVnd">Đang tính...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MAIN DIRECTORY SECTION -->
+        <main class="directory-section">
+            <div class="section-title">
+                <h2>Hệ Thống Tra Cứu Giá Vàng Toàn Diện</h2>
+                <p>Nhấp vào nút liên kết để truy cập trực tiếp bảng giá niêm yết chính thức của từng đơn vị</p>
+            </div>
+
+            <!-- Search and Filter Controls -->
+            <div class="search-filter-controls glass-panel">
+                <div class="search-box">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Tìm tên thương hiệu, ngân hàng, từ khóa...">
+                    <button id="clearSearch" class="clear-btn" aria-label="Xóa tìm kiếm">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                
+                <div class="sort-box">
+                    <i data-lucide="arrow-up-down" class="sort-icon"></i>
+                    <select id="sortSelect" aria-label="Sắp xếp danh sách">
+                        <option value="popularity">Mặc định (Phổ biến)</option>
+                        <option value="alphabet-asc">Tên đơn vị (A &rarr; Z)</option>
+                        <option value="alphabet-desc">Tên đơn vị (Z &rarr; A)</option>
+                        <option value="price-asc">Giá bán ra (Thấp &rarr; Cao)</option>
+                        <option value="price-desc">Giá bán ra (Cao &rarr; Thấp)</option>
+                    </select>
+                </div>
+                
+                <div class="filter-tabs">
+                    <button class="filter-tab active" data-filter="all">Tất cả</button>
+                    <button class="filter-tab" data-filter="enterprise">Doanh nghiệp</button>
+                    <button class="filter-tab" data-filter="bank">Ngân hàng</button>
+                    <button class="filter-tab" data-filter="aggregator">Trang tin</button>
+                </div>
+            </div>
+
+            <!-- Provider Grid -->
+            <div class="provider-grid" id="providerGrid">
+                <!-- Cards will be dynamically injected by script.js -->
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state hidden" id="emptyState">
+                <i data-lucide="alert-circle" class="empty-icon"></i>
+                <h3>Không tìm thấy kết quả phù hợp</h3>
+                <p>Vui lòng thử lại với từ khóa khác hoặc điều chỉnh bộ lọc của bạn.</p>
+            </div>
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="app-footer">
+            <div class="footer-top">
+                <div class="footer-brand">
+                    <div class="logo-icon small">
+                        <i data-lucide="trending-up"></i>
+                    </div>
+                    <h3>HOẠCH VÀNG<span>.VN</span></h3>
+                </div>
+                <p class="footer-desc">Nền tảng tổng hợp phi lợi nhuận thiết kế bởi Hoạch Vàng, cung cấp các liên kết trực tiếp tới các trang tra cứu giá vàng chính thức tại Việt Nam nhằm giúp người tiêu dùng tránh các website lừa đảo.</p>
+            </div>
+            
+            <div class="footer-disclaimer">
+                <p><strong>Lưu ý:</strong> Giá vàng biến động liên tục theo thời gian thực. HOẠCH VÀNG không chịu trách nhiệm về tính chính xác của dữ liệu trên các website liên kết hoặc quyết định đầu tư của người dùng. Hãy luôn xác nhận trực tiếp với đơn vị cung cấp tại thời điểm giao dịch.</p>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2026 HOẠCH VÀNG. Thiết kế chuẩn UX/UI cao cấp bởi Hoạch Vàng.</p>
+                <div class="footer-links">
+                    <a href="#"><i data-lucide="shield"></i> Chính sách bảo mật</a>
+                    <a href="#"><i data-lucide="info"></i> Về chúng tôi</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Popup Modal -->
+    <div class="modal-overlay hidden" id="goldModal">
+        <div class="modal-container glass-panel">
+            <button class="modal-close" id="modalCloseBtn" aria-label="Đóng cửa sổ">
+                <i data-lucide="x"></i>
+            </button>
+            <div class="modal-content" id="modalContent">
+                <!-- Dynamically loaded content -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="./script.js"></script>
+</body>
+</html>
