@@ -15,11 +15,20 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
+    <!-- Anti-Cache Meta Tags -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Stylesheet -->
-    <link rel="stylesheet" href="./style.css">
+    <!-- Supabase JS SDK (Classic script build → global window.supabase) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- 🔁 PHIÊN BẢN DUY NHẤT — ĐỔI MỖI KHI DEPLOY: dùng cho cả CSS lẫn JS để chống cache -->
+    <script>window.APP_VERSION = "2026-06-15.06";</script>
+    <script>document.write('<link rel="stylesheet" href="./style.css?v=' + window.APP_VERSION + '">');</script>
 </head>
 <body class="light-theme">
     <!-- Background glow elements -->
@@ -44,6 +53,9 @@
                     <i data-lucide="clock"></i>
                     <span id="timeString">Đang tải...</span>
                 </div>
+                <button class="theme-toggle-btn" id="adminToggle" title="Quản lý danh sách" aria-label="Quản lý danh sách">
+                    <i data-lucide="settings"></i>
+                </button>
                 <button class="theme-toggle-btn" id="themeToggle" aria-label="Chuyển đổi giao diện">
                     <i data-lucide="sun" class="sun-icon"></i>
                     <i data-lucide="moon" class="moon-icon"></i>
@@ -61,85 +73,10 @@
                 <p>Danh bạ tổng hợp 20 thương hiệu vàng miếng, trang sức và ngân hàng thương mại được cấp phép giao dịch vàng miếng uy tín nhất tại Việt Nam.</p>
             </div>
             
-            <!-- Live Ticker (Simulated dynamic data for rich visual experience) -->
-            <div class="ticker-wrapper">
-                <div class="ticker-title">
-                    <span class="pulse-dot"></span>
-                    <span>Tỷ Giá Tham Khảo:</span>
-                </div>
-                <div class="ticker-container" id="tickerContainer">
-                    <!-- Dynamic items inserted via JS -->
-                </div>
-            </div>
+
         </section>
 
-        <!-- UTILITY SUB-SECTION (Live market overview & Converter) -->
-        <section class="utility-section">
-            <!-- Mock Live Price Dashboard -->
-            <div class="glass-panel price-widget">
-                <div class="panel-header">
-                    <div class="title-with-icon">
-                        <i data-lucide="trending-up" class="color-gold"></i>
-                        <h3>Diễn Biến Thị Trường</h3>
-                    </div>
-                    <span class="panel-subtitle">Hôm nay</span>
-                </div>
-                <div class="price-table-container">
-                    <table class="custom-table">
-                        <thead>
-                            <tr>
-                                <th>Loại Vàng</th>
-                                <th>Mua Vào</th>
-                                <th>Bán Ra</th>
-                                <th>Biến Động</th>
-                            </tr>
-                        </thead>
-                        <tbody id="priceTableBody">
-                            <!-- Populated by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
 
-            <!-- Gold Converter Widget -->
-            <div class="glass-panel converter-widget">
-                <div class="panel-header">
-                    <div class="title-with-icon">
-                        <i data-lucide="calculator" class="color-gold"></i>
-                        <h3>Bộ Quy Đổi Đơn Vị</h3>
-                    </div>
-                    <span class="panel-subtitle">Công cụ hỗ trợ tính toán nhanh</span>
-                </div>
-                <div class="converter-form">
-                    <div class="input-group">
-                        <label for="goldAmount">Số lượng</label>
-                        <div class="input-wrapper">
-                            <input type="number" id="goldAmount" value="1" min="0.1" step="0.1">
-                            <select id="goldUnit">
-                                <option value="tael">Lượng (Cây)</option>
-                                <option value="chi">Chỉ</option>
-                                <option value="gram">Gram</option>
-                                <option value="ounce">Ounce (troy)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="converter-results">
-                        <div class="result-row">
-                            <span class="result-label">Quy đổi sang Gram:</span>
-                            <span class="result-value" id="resGram">37.50 g</span>
-                        </div>
-                        <div class="result-row">
-                            <span class="result-label">Quy đổi sang Ounce:</span>
-                            <span class="result-value" id="resOunce">1.206 oz</span>
-                        </div>
-                        <div class="result-row highlight">
-                            <span class="result-label">Giá trị ước tính (SJC):</span>
-                            <span class="result-value color-gold" id="resVnd">Đang tính...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
 
         <!-- MAIN DIRECTORY SECTION -->
         <main class="directory-section">
@@ -167,6 +104,16 @@
                         <option value="price-asc">Giá bán ra (Thấp &rarr; Cao)</option>
                         <option value="price-desc">Giá bán ra (Cao &rarr; Thấp)</option>
                     </select>
+                </div>
+                
+                <!-- Layout Toggle Box -->
+                <div class="layout-toggle-box" style="display: flex; border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; background: var(--input-bg); height: 42px; align-items: center; padding: 2px; flex-shrink: 0;">
+                    <button type="button" id="layoutGridBtn" class="layout-btn active" title="Hiển thị dạng lưới" style="background: var(--gold-primary); border: none; width: 38px; height: 36px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #0b0f19; transition: all 0.2s;">
+                        <i data-lucide="layout-grid" style="width: 18px; height: 18px;"></i>
+                    </button>
+                    <button type="button" id="layoutListBtn" class="layout-btn" title="Hiển thị dạng danh sách" style="background: none; border: none; width: 38px; height: 36px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: all 0.2s;">
+                        <i data-lucide="layout-list" style="width: 18px; height: 18px;"></i>
+                    </button>
                 </div>
                 
                 <div class="filter-tabs">
@@ -228,7 +175,118 @@
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="./script.js"></script>
+    <!-- CRUD Form Modal -->
+    <div class="modal-overlay hidden" id="crudModal">
+        <div class="modal-container glass-panel">
+            <button class="modal-close" id="crudModalCloseBtn" aria-label="Đóng">
+                <i data-lucide="x"></i>
+            </button>
+            <h3 style="font-family: var(--font-heading); font-size: 20px; font-weight: 800; margin-bottom: 20px;" id="crudModalTitle">Thêm Đơn Vị Mới</h3>
+            <form id="crudForm" class="converter-form">
+                <input type="hidden" id="providerId">
+                <div class="input-group">
+                    <label for="providerName">Tên đơn vị</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="providerName" required placeholder="Ví dụ: Tập đoàn Vàng bạc Phú Quý" style="font-size: 14px; font-weight: 500;">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 16px;">
+                    <div class="input-group" style="flex: 1;">
+                        <label for="providerAcronym">Tên viết tắt</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="providerAcronym" required placeholder="SJC, DOJI..." maxlength="6" style="font-size: 14px; font-weight: 500;">
+                        </div>
+                    </div>
+                    <div class="input-group" style="flex: 1;">
+                        <label for="providerCategory">Phân loại</label>
+                        <div class="input-wrapper">
+                            <select id="providerCategory" style="border-left: none; width: 100%; font-size: 13px;">
+                                <option value="enterprise">Doanh nghiệp</option>
+                                <option value="bank">Ngân hàng</option>
+                                <option value="aggregator">Trang tin</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="providerDesc">Mô tả hoạt động</label>
+                    <div class="input-wrapper">
+                        <textarea id="providerDesc" required placeholder="Nhập mô tả hoạt động, sản phẩm chính của thương hiệu..." rows="3" style="width: 100%; padding: 14px 16px; background: var(--input-bg); border: none; color: var(--text-primary); font-family: var(--font-primary); font-size: 13px; font-weight: 500; outline: none; border-radius: 12px; resize: vertical;"></textarea>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="providerUrl">Đường dẫn Website</label>
+                    <div class="input-wrapper">
+                        <input type="url" id="providerUrl" required placeholder="https://domain.com" style="font-size: 14px; font-weight: 500;">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="providerColor">Màu sắc chủ đạo (Gradient)</label>
+                    <div class="input-wrapper">
+                        <select id="providerColor" style="border-left: none; width: 100%; font-size: 13px;">
+                            <option value="linear-gradient(135deg, #FFE07D 0%, #D4AF37 100%)">Vàng Cam Hổ Phách</option>
+                            <option value="linear-gradient(135deg, #EF4444 0%, #B91C1C 100%)">Đỏ Quyền Lực</option>
+                            <option value="linear-gradient(135deg, #1E3A8A 0%, #0D9488 100%)">Xanh Dương Đại Dương</option>
+                            <option value="linear-gradient(135deg, #059669 0%, #047857 100%)">Xanh Lá Ngọc Bích</option>
+                            <option value="linear-gradient(135deg, #EA580C 0%, #9A3412 100%)">Cam Năng Động</option>
+                            <option value="linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)">Tím Hoàng Gia</option>
+                            <option value="linear-gradient(135deg, #6B7280 0%, #4B5563 100%)">Xám Khói Hiện Đại</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Price Configuration Section -->
+                <div class="input-group">
+                    <label>Chế độ cập nhật giá vàng</label>
+                    <div style="display: flex; gap: 24px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-primary);">
+                            <input type="radio" name="priceMode" value="auto" checked style="accent-color: var(--gold-primary); width: 16px; height: 16px;"> Tự động (theo SJC/DOJI)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-primary);">
+                            <input type="radio" name="priceMode" value="manual" style="accent-color: var(--gold-primary); width: 16px; height: 16px;"> Tự nhập thủ công
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Manual Price Editor (Hidden by default) -->
+                <div id="manualPriceSection" class="hidden" style="border: 1px dashed var(--border-color); border-radius: 12px; padding: 14px; background: var(--bg-card); margin-top: 10px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                        <span style="font-size: 13px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                            <i data-lucide="edit" style="width: 14px; height: 14px; color: var(--gold-primary);"></i> Bảng Giá Sản Phẩm
+                        </span>
+                        <button type="button" id="addProductRowBtn" style="padding: 6px 12px; background: var(--gold-gradient); border: none; border-radius: 8px; color: #0b0f19; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: transform 0.1s;">
+                            <i data-lucide="plus" style="width: 12px; height: 12px;"></i> Thêm Dòng
+                        </button>
+                    </div>
+                    
+                    <div id="productRowsContainer" style="display: flex; flex-direction: column; gap: 10px; max-height: 200px; overflow-y: auto; padding-right: 4px;">
+                        <!-- Dynamic product rows injected here -->
+                    </div>
+                </div>
+                <div class="modal-actions" style="margin-top: 12px;">
+                    <button type="button" class="modal-btn modal-btn-secondary" id="crudCancelBtn" style="flex: 1; justify-content: center;">Hủy</button>
+                    <button type="submit" class="modal-btn modal-btn-primary" style="flex: 1; justify-content: center;">Lưu Lại</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!--
+      Nạp script nội bộ, kèm ?v=APP_VERSION (khai báo ở <head>) để chống cache.
+      Đổi window.APP_VERSION trên <head> là cập nhật cho cả CSS lẫn JS.
+      document.write giữ thứ tự thực thi đồng bộ, chạy được cả trên file://.
+    -->
+    <script>
+        (function () {
+            var APP_VERSION = window.APP_VERSION;
+            var files = [
+                "./supabase.js",
+                "./script.js"
+            ];
+            for (var i = 0; i < files.length; i++) {
+                document.write('<script src="' + files[i] + '?v=' + APP_VERSION + '"><\/script>');
+            }
+        })();
+    </script>
 </body>
 </html>

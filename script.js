@@ -1,7 +1,7 @@
 // ==========================================================================
 // 1. DATABASE: 41 Gold Providers in Vietnam
 // ==========================================================================
-const goldProviders = [
+const defaultProviders = [
     {
         id: 1,
         name: "SJC (Vàng bạc Đá quý Sài Gòn)",
@@ -373,6 +373,8 @@ const goldProviders = [
     }
 ];
 
+let goldProviders = JSON.parse(localStorage.getItem('goldProviders')) || JSON.parse(JSON.stringify(defaultProviders));
+
 // Reference Prices database (Mock data for display & conversion)
 let goldRates = {
     sjc: { buy: 83500000, sell: 85500000, change: 150000, direction: "up" },
@@ -388,6 +390,8 @@ let goldRates = {
 let currentFilter = 'all';
 let searchQuery = '';
 let currentSort = 'popularity';
+let isAdminModeActive = false;
+let currentLayout = localStorage.getItem('goldLayout') || 'grid';
 
 const providerGrid = document.getElementById('providerGrid');
 const searchInput = document.getElementById('searchInput');
@@ -414,13 +418,59 @@ const goldModal = document.getElementById('goldModal');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
 const modalContent = document.getElementById('modalContent');
 
+// Admin CRUD Elements
+const adminToggle = document.getElementById('adminToggle');
+const crudModal = document.getElementById('crudModal');
+const crudModalCloseBtn = document.getElementById('crudModalCloseBtn');
+const crudCancelBtn = document.getElementById('crudCancelBtn');
+const crudForm = document.getElementById('crudForm');
+const crudModalTitle = document.getElementById('crudModalTitle');
+
+const providerIdInput = document.getElementById('providerId');
+const providerNameInput = document.getElementById('providerName');
+const providerAcronymInput = document.getElementById('providerAcronym');
+const providerCategorySelect = document.getElementById('providerCategory');
+const providerDescTextarea = document.getElementById('providerDesc');
+const providerUrlInput = document.getElementById('providerUrl');
+const providerColorSelect = document.getElementById('providerColor');
+
+const priceModeRadios = document.getElementsByName('priceMode');
+const manualPriceSection = document.getElementById('manualPriceSection');
+const addProductRowBtn = document.getElementById('addProductRowBtn');
+const productRowsContainer = document.getElementById('productRowsContainer');
+
 // ==========================================================================
 // 3. INITIALIZATION & LOGIC
 // ==========================================================================
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
+
+async function initApp() {
     initTheme();
+    
+    // Tải danh sách đơn vị từ Supabase (hoặc LocalStorage làm fallback)
+    if (window.cloud && window.cloud.ready) {
+        try {
+            // Seed default if database is empty
+            await window.cloud.seedDefaultProviders(defaultProviders);
+            // Load list from Supabase
+            const dbProviders = await window.cloud.loadProviders();
+            if (dbProviders && dbProviders.length > 0) {
+                goldProviders = dbProviders;
+                saveProvidersToLocalStorage();
+            }
+            console.log("Tải danh sách đơn vị từ Supabase thành công!");
+        } catch (e) {
+            console.warn("Không thể tải từ Supabase, sử dụng localStorage làm dự phòng:", e);
+        }
+    }
+    
     updateComputedPrices();
     renderProviders();
+    changeLayout(currentLayout);
     renderTicker();
     renderPriceTable();
     updateClock();
@@ -429,12 +479,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start timers
     setInterval(updateClock, 1000);
     setInterval(autoScrollTicker, 50); // Ticker scrolling
-    setInterval(simulateMarketFluctuations, 5000); // Dynamic price update mock
+    
+    // Fetch actual real-time prices initially and every 60 seconds (Anti-Mock)
+    fetchRealTimePrices();
+    setInterval(fetchRealTimePrices, 60000);
     
     // Bind Event Listeners
     setupEventListeners();
     lucide.createIcons();
-});
+}
 
 // Setup event listeners
 function setupEventListeners() {
@@ -471,8 +524,20 @@ function setupEventListeners() {
     });
 
     // Converter inputs
-    goldAmountInput.addEventListener('input', updateConversion);
-    goldUnitSelect.addEventListener('change', updateConversion);
+    if (goldAmountInput) {
+        goldAmountInput.addEventListener('input', updateConversion);
+    }
+    if (goldUnitSelect) {
+        goldUnitSelect.addEventListener('change', updateConversion);
+    }
+
+    // Layout toggle buttons
+    const layoutGridBtn = document.getElementById('layoutGridBtn');
+    const layoutListBtn = document.getElementById('layoutListBtn');
+    if (layoutGridBtn && layoutListBtn) {
+        layoutGridBtn.addEventListener('click', () => changeLayout('grid'));
+        layoutListBtn.addEventListener('click', () => changeLayout('list'));
+    }
 
     // Theme toggle
     themeToggle.addEventListener('click', toggleTheme);
@@ -494,13 +559,88 @@ function setupEventListeners() {
         }
     });
 
-    // Delegate click on grid cards to open modal
+    // Admin Mode toggle
+    adminToggle.addEventListener('click', toggleAdminMode);
+
+    // Price Mode change
+    priceModeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === 'manual') {
+                manualPriceSection.classList.remove('hidden');
+                if (productRowsContainer.children.length === 0) {
+                    addProductRow(); // Add one blank row by default if empty
+                }
+            } else {
+                manualPriceSection.classList.add('hidden');
+            }
+        });
+    });
+
+    // Add product row in CRUD form
+    addProductRowBtn.addEventListener('click', () => {
+        addProductRow();
+    });
+
+    // Delete product row in CRUD form
+    productRowsContainer.addEventListener('click', (e) => {
+        const removeBtn = e.target.closest('.remove-prod-btn');
+        if (removeBtn) {
+            e.preventDefault();
+            const row = removeBtn.closest('.product-price-row');
+            if (row) {
+                row.remove();
+            }
+        }
+    });
+
+    // CRUD Modal close & cancel
+    crudModalCloseBtn.addEventListener('click', closeCrudModal);
+    crudCancelBtn.addEventListener('click', closeCrudModal);
+    crudModal.addEventListener('click', (e) => {
+        if (e.target === crudModal) {
+            closeCrudModal();
+        }
+    });
+
+    // Form submit
+    crudForm.addEventListener('submit', handleCrudFormSubmit);
+
+    // Delegate click on grid cards to edit or delete or add
     providerGrid.addEventListener('click', (e) => {
+        // 1. Add Card click
+        const addCard = e.target.closest('.add-provider-card');
+        if (addCard) {
+            e.stopPropagation();
+            openCrudModalForAdd();
+            return;
+        }
+
         const card = e.target.closest('.provider-card');
-        if (card) {
-            // Only trigger popup if not clicking on elements that might have other handlers
-            const providerId = parseInt(card.getAttribute('data-id'));
-            openModal(providerId);
+        if (!card) return;
+        const providerId = parseInt(card.getAttribute('data-id'));
+
+        // 2. Edit button click
+        const editBtn = e.target.closest('.admin-action-btn.edit');
+        if (editBtn) {
+            e.stopPropagation();
+            openCrudModalForEdit(providerId);
+            return;
+        }
+
+        // 3. Delete button click
+        const deleteBtn = e.target.closest('.admin-action-btn.delete');
+        if (deleteBtn) {
+            e.stopPropagation();
+            handleDeleteProvider(providerId);
+            return;
+        }
+
+        // 4. Navigate directly to website page in new tab
+        if (!isAdminModeActive) {
+            const provider = goldProviders.find(p => p.id === providerId);
+            if (provider && provider.url) {
+                window.open(provider.url, '_blank', 'noopener,noreferrer');
+            }
         }
     });
 }
@@ -522,18 +662,37 @@ function updateComputedPrices() {
 function renderProviders(data = goldProviders) {
     providerGrid.innerHTML = '';
     
-    if (data.length === 0) {
+    // In admin mode, we always show the "Add New" card at the beginning
+    if (isAdminModeActive) {
+        const addCardHtml = `
+            <div class="add-provider-card">
+                <i data-lucide="plus-circle"></i>
+                <span>Thêm Đơn Vị Mới</span>
+            </div>
+        `;
+        providerGrid.insertAdjacentHTML('beforeend', addCardHtml);
+    }
+    
+    if (data.length === 0 && !isAdminModeActive) {
         emptyState.classList.remove('hidden');
         providerGrid.style.display = 'none';
         return;
     }
 
     emptyState.classList.add('hidden');
-    providerGrid.style.display = 'grid';
+    providerGrid.style.display = '';
 
     data.forEach(provider => {
         const cardHtml = `
             <div class="provider-card glass-panel" data-id="${provider.id}">
+                <div class="card-admin-actions">
+                    <button class="admin-action-btn edit" title="Sửa thông tin" aria-label="Sửa">
+                        <i data-lucide="edit-2"></i>
+                    </button>
+                    <button class="admin-action-btn delete" title="Xóa đơn vị" aria-label="Xóa">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>
                 <div class="card-header">
                     <div class="brand-avatar" style="background: ${provider.color}">
                         ${provider.acronym}
@@ -545,25 +704,14 @@ function renderProviders(data = goldProviders) {
                 <div class="card-body">
                     <h3>${provider.name}</h3>
                     <p>${provider.description}</p>
-                    
-                    <div class="card-price-preview">
-                        <div class="price-preview-col">
-                            <span class="price-preview-label">Mua vào</span>
-                            <span class="price-preview-val">${formatVndRaw(provider.computedBuy)}</span>
-                        </div>
-                        <div class="price-preview-col">
-                            <span class="price-preview-label">Bán ra</span>
-                            <span class="price-preview-val sell">${formatVndRaw(provider.computedSell)}</span>
-                        </div>
-                    </div>
                 </div>
                 <div class="card-footer">
                     <div class="status-indicator">
                         <span>Cập nhật liên tục</span>
                     </div>
                     <button class="visit-btn view-details-btn" data-id="${provider.id}">
-                        <span>Xem Giá Nhanh</span>
-                        <i data-lucide="eye"></i>
+                        <span>Ghé Trang Web</span>
+                        <i data-lucide="external-link"></i>
                     </button>
                 </div>
             </div>
@@ -623,6 +771,7 @@ function toggleClearButton() {
 
 function renderTicker() {
     const tickerContainer = document.getElementById('tickerContainer');
+    if (!tickerContainer) return;
     tickerContainer.innerHTML = '';
 
     const items = [
@@ -659,6 +808,7 @@ function renderTicker() {
 
 function renderPriceTable() {
     const tbody = document.getElementById('priceTableBody');
+    if (!tbody) return;
     tbody.innerHTML = '';
 
     const items = [
@@ -704,41 +854,80 @@ function autoScrollTicker() {
     }
 }
 
-// Simulate market fluctuation to make the dashboard dynamic
-function simulateMarketFluctuations() {
-    const fluctuationKeys = ['sjc', 'doji', 'pnj', 'ring9999'];
-    fluctuationKeys.forEach(key => {
-        const sign = Math.random() > 0.45 ? 1 : -1;
-        const amount = Math.floor(Math.random() * 5) * 10000;
+// Fetch actual real-time prices from the API
+async function fetchRealTimePrices() {
+    try {
+        const response = await fetch('https://www.vang.today/api/prices');
+        if (!response.ok) throw new Error('API Error');
+        const data = await response.json();
         
-        goldRates[key].change = sign * amount;
-        goldRates[key].buy += sign * amount;
-        goldRates[key].sell += sign * amount;
-        goldRates[key].direction = sign >= 0 ? 'up' : 'down';
-    });
-
-    // World Gold fluctuation
-    const worldSign = Math.random() > 0.5 ? 1 : -1;
-    const worldVal = Math.random() * 2;
-    goldRates.world.change = parseFloat((worldSign * worldVal).toFixed(1));
-    goldRates.world.buy = parseFloat((goldRates.world.buy + worldSign * worldVal).toFixed(1));
-    goldRates.world.sell = parseFloat((goldRates.world.sell + worldSign * worldVal).toFixed(1));
-    goldRates.world.direction = worldSign >= 0 ? 'up' : 'down';
-
-    // Update computed properties inside provider list
-    updateComputedPrices();
-
-    // Re-render
-    renderTicker();
-    renderPriceTable();
-    filterAndRender(); // Re-render directory (keeps sorting and filters updated in real-time)
-    updateConversion();
+        if (data && data.success && data.prices) {
+            const p = data.prices;
+            
+            // Update rates with exact API values
+            if (p.SJL1L10) {
+                goldRates.sjc.buy = p.SJL1L10.buy;
+                goldRates.sjc.sell = p.SJL1L10.sell;
+                goldRates.sjc.change = p.SJL1L10.change_sell;
+                goldRates.sjc.direction = p.SJL1L10.change_sell >= 0 ? "up" : "down";
+            }
+            if (p.DOHNL) {
+                goldRates.doji.buy = p.DOHNL.buy;
+                goldRates.doji.sell = p.DOHNL.sell;
+                goldRates.doji.change = p.DOHNL.change_sell;
+                goldRates.doji.direction = p.DOHNL.change_sell >= 0 ? "up" : "down";
+            }
+            if (p.PQHNVM) {
+                goldRates.pnj.buy = p.PQHNVM.buy;
+                goldRates.pnj.sell = p.PQHNVM.sell;
+                goldRates.pnj.change = p.PQHNVM.change_sell;
+                goldRates.pnj.direction = p.PQHNVM.change_sell >= 0 ? "up" : "down";
+            }
+            if (p.SJ9999) {
+                goldRates.ring9999.buy = p.SJ9999.buy;
+                goldRates.ring9999.sell = p.SJ9999.sell;
+                goldRates.ring9999.change = p.SJ9999.change_sell;
+                goldRates.ring9999.direction = p.SJ9999.change_sell >= 0 ? "up" : "down";
+            }
+            if (p.XAUUSD) {
+                goldRates.world.buy = p.XAUUSD.buy;
+                goldRates.world.sell = Math.round(p.XAUUSD.buy + 1); // Sell estimation
+                goldRates.world.change = p.XAUUSD.change_buy;
+                goldRates.world.direction = p.XAUUSD.change_buy >= 0 ? "up" : "down";
+            }
+            
+            console.log("Cập nhật tỷ giá thực tế từ API thành công!");
+            
+            // Re-calculate all computed prices based on these exact values
+            updateComputedPrices();
+            
+            // Re-render components
+            renderTicker();
+            renderPriceTable();
+            filterAndRender();
+            updateConversion();
+            
+            // Update UI status to show Live API Connected
+            const clockEl = document.getElementById('timeString');
+            if (clockEl && !document.getElementById('apiLiveIndicator')) {
+                const clockWrap = clockEl.parentElement;
+                clockWrap.innerHTML = `
+                    <i data-lucide="wifi" id="apiLiveIndicator" class="color-success" style="color: #10B981"></i>
+                    <span id="timeString">${clockEl.textContent}</span>
+                `;
+                lucide.createIcons();
+            }
+        }
+    } catch (error) {
+        console.warn("Không thể kết nối API giá vàng thực tế, đang sử dụng dữ liệu ngoại tuyến:", error);
+    }
 }
 
 // ==========================================================================
 // 6. GOLD UNIT CONVERTER
 // ==========================================================================
 function updateConversion() {
+    if (!goldAmountInput) return;
     const amountVal = parseFloat(goldAmountInput.value);
     const selectedUnit = goldUnitSelect.value;
 
@@ -933,6 +1122,16 @@ function openModal(providerId) {
 
 // Generate realistic mock prices based on the provider category/name
 function getBrandSpecificPrices(provider) {
+    // If manual mode is active and there are custom prices, return them
+    if (provider.priceMode === 'manual' && provider.customPrices && provider.customPrices.length > 0) {
+        return provider.customPrices.map(p => ({
+            name: p.name,
+            buy: Number(p.buy),
+            sell: Number(p.sell),
+            change: p.change || 0
+        }));
+    }
+
     const acronym = provider.acronym;
     const cat = provider.category;
     
@@ -1028,5 +1227,234 @@ function getBrandSpecificPrices(provider) {
         }
 
         return products;
+    }
+}
+
+// ==========================================================================
+// 10. CRUD ADMINISTRATION LOGIC
+// ==========================================================================
+
+function toggleAdminMode() {
+    isAdminModeActive = !isAdminModeActive;
+    if (isAdminModeActive) {
+        document.body.classList.add('admin-mode-active');
+        adminToggle.classList.add('admin-active-btn');
+    } else {
+        document.body.classList.remove('admin-mode-active');
+        adminToggle.classList.remove('admin-active-btn');
+    }
+    filterAndRender(); // Re-render to show/hide "Add Card" and edit/delete overlay buttons
+}
+
+function addProductRow(name = '', buy = '', sell = '') {
+    const rowId = 'row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    const rowHtml = `
+        <div class="product-price-row" id="${rowId}" style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" placeholder="Tên sản phẩm (ví dụ: Vàng Nhẫn)" class="prod-name" required value="${name.replace(/"/g, '&quot;')}" style="flex: 2; padding: 10px 12px; font-size: 13px; font-weight: 500; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary); outline: none;">
+            <input type="number" placeholder="Mua" class="prod-buy" required value="${buy}" style="flex: 1.2; padding: 10px 12px; font-size: 13px; font-weight: 500; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary); outline: none;">
+            <input type="number" placeholder="Bán" class="prod-sell" required value="${sell}" style="flex: 1.2; padding: 10px 12px; font-size: 13px; font-weight: 500; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary); outline: none;">
+            <button type="button" class="remove-prod-btn" style="background: transparent; border: none; color: var(--danger); cursor: pointer; display: flex; align-items: center; padding: 6px;" title="Xóa dòng">
+                <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+            </button>
+        </div>
+    `;
+    productRowsContainer.insertAdjacentHTML('beforeend', rowHtml);
+    lucide.createIcons();
+}
+
+function openCrudModalForAdd() {
+    crudModalTitle.textContent = "Thêm Đơn Vị Mới";
+    providerIdInput.value = "";
+    crudForm.reset();
+    
+    // Reset price mode fields
+    document.querySelector('input[name="priceMode"][value="auto"]').checked = true;
+    manualPriceSection.classList.add('hidden');
+    productRowsContainer.innerHTML = '';
+    
+    crudModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function openCrudModalForEdit(id) {
+    const provider = goldProviders.find(p => p.id === id);
+    if (!provider) return;
+    
+    crudModalTitle.textContent = "Sửa Thông Tin Đơn Vị";
+    providerIdInput.value = provider.id;
+    providerNameInput.value = provider.name;
+    providerAcronymInput.value = provider.acronym;
+    providerCategorySelect.value = provider.category;
+    providerDescTextarea.value = provider.description;
+    providerUrlInput.value = provider.url;
+    providerColorSelect.value = provider.color;
+    
+    // Set price mode
+    const mode = provider.priceMode || 'auto';
+    document.querySelector(`input[name="priceMode"][value="${mode}"]`).checked = true;
+    
+    productRowsContainer.innerHTML = '';
+    if (mode === 'manual') {
+        manualPriceSection.classList.remove('hidden');
+        if (provider.customPrices && provider.customPrices.length > 0) {
+            provider.customPrices.forEach(p => {
+                addProductRow(p.name, p.buy, p.sell);
+            });
+        } else {
+            addProductRow();
+        }
+    } else {
+        manualPriceSection.classList.add('hidden');
+    }
+    
+    crudModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeCrudModal() {
+    crudModal.classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function handleCrudFormSubmit(e) {
+    e.preventDefault();
+    
+    const idVal = providerIdInput.value;
+    const nameVal = providerNameInput.value.trim();
+    const acronymVal = providerAcronymInput.value.trim().toUpperCase();
+    const categoryVal = providerCategorySelect.value;
+    const descVal = providerDescTextarea.value.trim();
+    const urlVal = providerUrlInput.value.trim();
+    const colorVal = providerColorSelect.value;
+    
+    // Get price mode
+    const selectedPriceMode = document.querySelector('input[name="priceMode"]:checked').value;
+    
+    // Get custom products & prices
+    const customPrices = [];
+    if (selectedPriceMode === 'manual') {
+        const rows = productRowsContainer.querySelectorAll('.product-price-row');
+        rows.forEach(row => {
+            const name = row.querySelector('.prod-name').value.trim();
+            const buy = parseFloat(row.querySelector('.prod-buy').value);
+            const sell = parseFloat(row.querySelector('.prod-sell').value);
+            if (name && !isNaN(buy) && !isNaN(sell)) {
+                customPrices.push({ name, buy, sell, change: 0 });
+            }
+        });
+        
+        // If manual mode is selected but no products entered, prompt a warning
+        if (customPrices.length === 0) {
+            alert("Bạn đã chọn chế độ tự nhập thủ công nhưng chưa thêm sản phẩm hợp lệ. Hệ thống sẽ tạm thời chuyển về tự động.");
+            document.querySelector('input[name="priceMode"][value="auto"]').checked = true;
+            return;
+        }
+    }
+    
+    if (idVal) {
+        // Edit Mode: update existing provider
+        const idNum = parseInt(idVal);
+        const index = goldProviders.findIndex(p => p.id === idNum);
+        if (index !== -1) {
+            goldProviders[index].name = nameVal;
+            goldProviders[index].acronym = acronymVal;
+            goldProviders[index].category = categoryVal;
+            goldProviders[index].description = descVal;
+            goldProviders[index].url = urlVal;
+            goldProviders[index].color = colorVal;
+            goldProviders[index].priceMode = selectedPriceMode;
+            goldProviders[index].customPrices = selectedPriceMode === 'manual' ? customPrices : null;
+            
+            // Sync to Supabase
+            if (window.cloud && window.cloud.ready) {
+                window.cloud.upsertProvider(goldProviders[index]).catch(err => console.error("Lỗi đồng bộ Supabase khi cập nhật:", err));
+            }
+        }
+    } else {
+        // Add Mode: generate ID and create new provider object
+        const maxId = goldProviders.reduce((max, p) => p.id > max ? p.id : max, 0);
+        const newProvider = {
+            id: maxId + 1,
+            name: nameVal,
+            acronym: acronymVal,
+            category: categoryVal,
+            description: descVal,
+            url: urlVal,
+            color: colorVal,
+            priceMode: selectedPriceMode,
+            customPrices: selectedPriceMode === 'manual' ? customPrices : null
+        };
+        goldProviders.push(newProvider);
+        
+        // Sync to Supabase
+        if (window.cloud && window.cloud.ready) {
+            window.cloud.upsertProvider(newProvider).catch(err => console.error("Lỗi đồng bộ Supabase khi thêm mới:", err));
+        }
+    }
+    
+    // Save to LocalStorage
+    saveProvidersToLocalStorage();
+    
+    // Recalculate prices
+    updateComputedPrices();
+    
+    // Close modal and refresh directory view
+    closeCrudModal();
+    filterAndRender();
+}
+
+function handleDeleteProvider(id) {
+    const provider = goldProviders.find(p => p.id === id);
+    if (!provider) return;
+    
+    const isConfirmed = confirm(`Bạn có chắc chắn muốn xóa đơn vị "${provider.name}" khỏi danh sách?`);
+    if (isConfirmed) {
+        goldProviders = goldProviders.filter(p => p.id !== id);
+        saveProvidersToLocalStorage();
+        
+        // Sync to Supabase
+        if (window.cloud && window.cloud.ready) {
+            window.cloud.softDeleteProvider(id).catch(err => console.error("Lỗi đồng bộ Supabase khi xóa:", err));
+        }
+        
+        filterAndRender();
+    }
+}
+
+function saveProvidersToLocalStorage() {
+    localStorage.setItem('goldProviders', JSON.stringify(goldProviders));
+}
+
+function changeLayout(layout) {
+    currentLayout = layout;
+    localStorage.setItem('goldLayout', layout);
+    
+    const layoutGridBtn = document.getElementById('layoutGridBtn');
+    const layoutListBtn = document.getElementById('layoutListBtn');
+    
+    if (layout === 'list') {
+        providerGrid.classList.add('list-layout');
+        if (layoutGridBtn) {
+            layoutGridBtn.style.background = 'none';
+            layoutGridBtn.style.color = 'var(--text-secondary)';
+            layoutGridBtn.classList.remove('active');
+        }
+        if (layoutListBtn) {
+            layoutListBtn.style.background = 'var(--gold-primary)';
+            layoutListBtn.style.color = '#0b0f19';
+            layoutListBtn.classList.add('active');
+        }
+    } else {
+        providerGrid.classList.remove('list-layout');
+        if (layoutGridBtn) {
+            layoutGridBtn.style.background = 'var(--gold-primary)';
+            layoutGridBtn.style.color = '#0b0f19';
+            layoutGridBtn.classList.add('active');
+        }
+        if (layoutListBtn) {
+            layoutListBtn.style.background = 'none';
+            layoutListBtn.style.color = 'var(--text-secondary)';
+            layoutListBtn.classList.remove('active');
+        }
     }
 }
