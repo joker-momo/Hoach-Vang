@@ -1166,6 +1166,9 @@ function toggleTheme() {
 // 8. HELPERS & CLOCK
 // ==========================================================================
 function updateClock() {
+    const clockEl = document.getElementById('timeString');
+    if (!clockEl) return;
+    
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -1174,7 +1177,7 @@ function updateClock() {
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
     
-    timeStringSpan.textContent = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    clockEl.textContent = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
 }
 
 function formatVndTael(price) {
