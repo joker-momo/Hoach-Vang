@@ -391,7 +391,6 @@ let currentFilter = 'all';
 let searchQuery = '';
 let currentSort = 'popularity';
 let isAdminModeActive = false;
-let isAdminAuthenticated = false;
 let currentLayout = localStorage.getItem('goldLayout') || 'grid';
 
 const providerGrid = document.getElementById('providerGrid');
@@ -422,16 +421,9 @@ const crudModalTitle = document.getElementById('crudModalTitle');
 
 const providerIdInput = document.getElementById('providerId');
 const providerNameInput = document.getElementById('providerName');
-const providerAcronymInput = document.getElementById('providerAcronym');
 const providerCategorySelect = document.getElementById('providerCategory');
-const providerDescTextarea = document.getElementById('providerDesc');
 const providerUrlInput = document.getElementById('providerUrl');
 const providerColorSelect = document.getElementById('providerColor');
-
-const priceModeRadios = document.getElementsByName('priceMode');
-const manualPriceSection = document.getElementById('manualPriceSection');
-const addProductRowBtn = document.getElementById('addProductRowBtn');
-const productRowsContainer = document.getElementById('productRowsContainer');
 
 // Admin Login Elements
 const adminLoginModal = document.getElementById('adminLoginModal');
@@ -492,6 +484,10 @@ async function initApp() {
     setupEventListeners();
     lucide.createIcons();
 
+    // Khôi phục UI admin nếu phiên còn hiệu lực + lắng nghe đổi trạng thái (đăng xuất / hết hạn)
+    window.admin.onChange = onAdminStateChange;
+    applyAdminAuthUI(window.admin.isAdmin());
+
     // Fetch YouTube channel info (non-blocking)
     fetchYouTubeChannelInfo();
 }
@@ -511,90 +507,23 @@ const YT_FALLBACK = {
     subscribers: '315K người đăng ký'
 };
 
+// Public CORS proxies (try in order, fall through on failure).
 const CORS_PROXIES = [
-    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+    url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+    url => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
+    url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+    url => `https://cors.eu.org/${url}`
 ];
 
-async function fetchYouTubeChannelInfo() {
-    // 1. Kiểm tra cache trong localStorage
-    const cacheKey = 'yt_channel_info_cache';
-    try {
-        const cachedData = localStorage.getItem(cacheKey);
-        if (cachedData) {
-            const parsed = JSON.parse(cachedData);
-            const now = Date.now();
-            const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
-            if (now - parsed.cachedAt < sevenDaysInMs && parsed.name && parsed.avatar) {
-                console.log('Sử dụng thông tin kênh YouTube từ cache (localStorage)...');
-                applyYouTubeChannelInfo(parsed.name, parsed.avatar, parsed.description, parsed.subscribers || YT_FALLBACK.subscribers);
-                return;
-            }
-        }
-    } catch (e) {
-        console.error('Lỗi đọc cache YouTube từ localStorage:', e);
-    }
-
-    let name = YT_FALLBACK.name;
-    let avatar = YT_FALLBACK.avatar;
-    let description = YT_FALLBACK.description;
-    let subscribers = YT_FALLBACK.subscribers;
-    let fetchSuccess = false;
-
-    for (const proxyFn of CORS_PROXIES) {
-        try {
-            // 1. Fetch RSS feed → lấy tên kênh
-            const rssResp = await fetch(proxyFn(YT_RSS_URL), { signal: AbortSignal.timeout(8000) });
-            if (!rssResp.ok) continue;
-            const xmlText = await rssResp.text();
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
-            const authorName = xmlDoc.querySelector('author > name')?.textContent;
-            if (authorName) name = authorName;
-            fetchSuccess = true;
-
-            // 2. Fetch channel page → lấy avatar (og:image) + mô tả (og:description) + subscriber count
-            try {
-                const pageResp = await fetch(proxyFn(YT_CHANNEL_PAGE), { signal: AbortSignal.timeout(8000) });
-                if (pageResp.ok) {
-                    const html = await pageResp.text();
-                    const imgMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/);
-                    if (imgMatch) avatar = imgMatch[1];
-                    const descMatch = html.match(/<meta\s+property="og:description"\s+content="([^"]+)"/);
-                    if (descMatch) description = descMatch[1];
-                    
-                    // Trích xuất số người đăng ký từ JSON ytInitialData trong trang YouTube
-                    const subMatch = html.match(/"subscriberCountText"\s*:\s*\{\s*"simpleText"\s*:\s*"([^"]+)"/);
-                    if (subMatch) {
-                        subscribers = subMatch[1];
-                    }
-                }
-            } catch (e) { /* fallback */ }
-
-            break; // Thành công, thoát vòng lặp proxy
-        } catch (e) {
-            continue; // Thử proxy tiếp theo
-        }
-    }
-
-    // Cập nhật DOM
-    applyYouTubeChannelInfo(name, avatar, description, subscribers);
-
-    // Lưu cache nếu fetch thành công
-    if (fetchSuccess) {
-        try {
-            localStorage.setItem(cacheKey, JSON.stringify({
-                name,
-                avatar,
-                description,
-                subscribers,
-                cachedAt: Date.now()
-            }));
-            console.log('Đã lưu thông tin kênh YouTube mới vào cache (localStorage).');
-        } catch (e) {
-            console.error('Không thể lưu cache YouTube vào localStorage:', e);
-        }
-    }
+function fetchYouTubeChannelInfo() {
+    // YouTube RSS/trang kênh không có CORS → fetch từ trình duyệt luôn cần proxy (đã chết).
+    // Dùng thông tin tĩnh trong YT_FALLBACK. Cập nhật trực tiếp ở YT_FALLBACK khi cần đổi.
+    applyYouTubeChannelInfo(
+        YT_FALLBACK.name,
+        YT_FALLBACK.avatar,
+        YT_FALLBACK.description,
+        YT_FALLBACK.subscribers
+    );
 }
 
 function applyYouTubeChannelInfo(name, avatar, description, subscribers) {
@@ -701,37 +630,6 @@ function setupEventListeners() {
 
     // Admin Logout
     adminLogoutBtn.addEventListener('click', handleAdminLogout);
-
-    // Price Mode change
-    priceModeRadios.forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            if (e.target.value === 'manual') {
-                manualPriceSection.classList.remove('hidden');
-                if (productRowsContainer.children.length === 0) {
-                    addProductRow(); // Add one blank row by default if empty
-                }
-            } else {
-                manualPriceSection.classList.add('hidden');
-            }
-        });
-    });
-
-    // Add product row in CRUD form
-    addProductRowBtn.addEventListener('click', () => {
-        addProductRow();
-    });
-
-    // Delete product row in CRUD form
-    productRowsContainer.addEventListener('click', (e) => {
-        const removeBtn = e.target.closest('.remove-prod-btn');
-        if (removeBtn) {
-            e.preventDefault();
-            const row = removeBtn.closest('.product-price-row');
-            if (row) {
-                row.remove();
-            }
-        }
-    });
 
     // CRUD Modal close & cancel
     crudModalCloseBtn.addEventListener('click', closeCrudModal);
@@ -845,12 +743,8 @@ function renderProviders(data = goldProviders) {
                 </div>
                 <div class="card-body">
                     <h3>${escapeHtml(provider.name)}</h3>
-                    <p>${escapeHtml(provider.description)}</p>
                 </div>
                 <div class="card-footer">
-                    <div class="status-indicator">
-                        <span>Cập nhật liên tục</span>
-                    </div>
                     <button class="visit-btn view-details-btn" data-id="${provider.id}">
                         <span>Ghé Trang Web</span>
                         <i data-lucide="external-link"></i>
@@ -914,7 +808,7 @@ function toggleClearButton() {
 }
 
 // ==========================================================================
-// VIETCOMBANK EXCHANGE RATES (webgia.com Scraper & Decoder)
+// VIETCOMBANK EXCHANGE RATES (lấy HTML webgia.com qua CORS proxy, parse plain text)
 // ==========================================================================
 const VCB_RATES_URL = 'https://webgia.com/ty-gia/vietcombank/';
 let isVcbExpanded = false;
@@ -941,9 +835,9 @@ async function fetchVietcombankRates() {
             const resp = await fetch(proxyFn(VCB_RATES_URL), { signal: AbortSignal.timeout(8000) });
             if (resp.ok) {
                 htmlText = await resp.text();
-                if (htmlText.startsWith('{') && htmlText.includes('"contents":')) {
-                    const parsed = JSON.parse(htmlText);
-                    htmlText = parsed.contents || '';
+                // allorigins /get bọc trong {contents:"..."}; các proxy khác trả thẳng HTML.
+                if (htmlText.startsWith('{') && htmlText.includes('"contents"')) {
+                    try { htmlText = JSON.parse(htmlText).contents || ''; } catch (e) { /* dùng nguyên văn */ }
                 }
                 if (htmlText.includes('table-exchanges')) {
                     fetchSuccess = true;
@@ -951,7 +845,7 @@ async function fetchVietcombankRates() {
                 }
             }
         } catch (e) {
-            console.warn(`Thất bại khi lấy tỷ giá VCB qua proxy:`, e);
+            console.warn('Thất bại khi lấy tỷ giá VCB qua proxy:', e);
         }
     }
 
@@ -973,88 +867,25 @@ async function fetchVietcombankRates() {
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
 
-        const styleMap = {};
-        const styleRegex = /\.([a-z0-9_-]+):before\s*\{\s*content\s*:\s*["']([^"']+)["']\s*\}/g;
-        let match;
-        while ((match = styleRegex.exec(htmlText)) !== null) {
-            const className = match[1];
-            let contentVal = match[2];
-            if (contentVal.startsWith('\\')) {
-                const hexVal = contentVal.substring(1);
-                contentVal = String.fromCharCode(parseInt(hexVal, 16));
-            }
-            styleMap[className] = contentVal;
-        }
-
-        const spans = doc.querySelectorAll('td span');
-        spans.forEach(span => {
-            for (const className of span.classList) {
-                if (styleMap[className] !== undefined) {
-                    span.textContent = styleMap[className];
-                    break;
-                }
-            }
-        });
-
-        function decodeNb(nbStr) {
-            if (!nbStr) return '-';
-            const cleaned = nbStr.replace(/[A-Z]/g, '');
-            let decoded = '';
-            for (let i = 0; i < cleaned.length - 1; i += 2) {
-                const hex = cleaned.substr(i, 2);
-                decoded += String.fromCharCode(parseInt(hex, 16));
-            }
-            return decoded;
-        }
-
-        const wgvnvCells = doc.querySelectorAll('td.wgvnv');
-        wgvnvCells.forEach(td => {
-            const nbVal = td.getAttribute('nb');
-            if (nbVal) {
-                td.textContent = decodeNb(nbVal);
-            } else {
-                td.textContent = '-';
-            }
-            td.classList.remove('wgvnv');
-            td.removeAttribute('nb');
-        });
-
+        // webgia trả số dạng plain text. Cột: [0]=mã, [1]=tên, [2]=mua tiền mặt, [3]=mua CK, [4]=bán tiền mặt.
         const rates = [];
-        const rows = doc.querySelectorAll('.table-exchanges tbody tr');
-        rows.forEach(row => {
+        doc.querySelectorAll('.table-exchanges tr').forEach(row => {
             const cells = row.querySelectorAll('td');
-            if (cells.length >= 5) {
-                if (cells[0].getAttribute('colspan') === '5') {
-                    return;
-                }
+            if (cells.length < 5) return; // bỏ hàng header (th) + hàng "Cập nhật lúc" (colspan)
 
-                const codeAnchor = cells[0].querySelector('a');
-                let code = '';
-                if (codeAnchor) {
-                    const span = codeAnchor.querySelector('span:not(.cur-icon)');
-                    code = span ? span.textContent.trim() : codeAnchor.textContent.trim();
-                } else {
-                    code = cells[0].textContent.trim();
-                }
-
-                const name = cells[1].textContent.trim();
-                const buyCash = cells[2].textContent.trim();
-                const sellCash = cells[4].textContent.trim();
-
-                if (code && name) {
-                    rates.push({ code, name, buyCash, sellCash });
-                }
-            }
+            const codeSpan = cells[0].querySelector('a span:not(.cur-icon)');
+            const code = (codeSpan ? codeSpan.textContent : cells[0].textContent).trim();
+            const name = cells[1].textContent.trim();
+            const buyCash = cells[2].textContent.trim();
+            const sellCash = cells[4].textContent.trim();
+            if (code && name) rates.push({ code, name, buyCash, sellCash });
         });
 
-        const updateTd = doc.querySelector('.table-exchanges tbody tr td[colspan="5"]');
         let updateTime = '';
+        const updateTd = doc.querySelector('.table-exchanges td[colspan="5"]');
         if (updateTd) {
-            const text = updateTd.textContent.trim();
-            const timeMatch = text.match(/Cập nhật lúc\s+(\d{2}:\d{2}:\d{2}\s+\d{2}\/\d{2}\/\d{4})/i);
-            if (timeMatch) {
-                updateTime = timeMatch[1].trim();
-            }
+            const timeMatch = updateTd.textContent.trim().match(/Cập nhật lúc\s+([^\n\r]+)/i);
+            if (timeMatch) updateTime = timeMatch[1].trim();
         }
 
         if (rates.length > 0) {
@@ -1062,7 +893,6 @@ async function fetchVietcombankRates() {
         } else {
             throw new Error('No rates parsed');
         }
-
     } catch (e) {
         console.error('Lỗi phân tích cú pháp HTML tỷ giá VCB:', e);
         if (!hasData) {
@@ -1530,12 +1360,40 @@ function getBrandSpecificPrices(provider) {
 
 // Xử lý khi nhấn nút ⚙️ Admin Toggle
 function handleAdminToggleClick() {
-    if (!isAdminAuthenticated) {
-        // Chưa xác thực → mở modal đăng nhập
+    if (!window.admin.isAdmin()) {
+        // Chưa xác thực (hoặc phiên hết hạn) → mở modal đăng nhập
         openAdminLoginModal();
     } else {
         // Đã xác thực → toggle chế độ admin bình thường
         toggleAdminMode();
+    }
+}
+
+// Đồng bộ UI chỉ báo "đã đăng nhập admin" theo trạng thái phiên
+function applyAdminAuthUI(isAdmin) {
+    if (isAdmin) {
+        document.body.classList.add('admin-authenticated');
+        if (!adminToggle.querySelector('.admin-authenticated-indicator')) {
+            const dot = document.createElement('span');
+            dot.className = 'admin-authenticated-indicator';
+            adminToggle.appendChild(dot);
+        }
+    } else {
+        document.body.classList.remove('admin-authenticated');
+        const dot = adminToggle.querySelector('.admin-authenticated-indicator');
+        if (dot) dot.remove();
+    }
+}
+
+// Gọi khi phiên admin đổi (đăng nhập / đăng xuất / hết hạn 30 phút)
+function onAdminStateChange(isAdmin) {
+    applyAdminAuthUI(isAdmin);
+    if (!isAdmin && isAdminModeActive) {
+        // Phiên hết hạn khi đang ở admin mode → tự về read-only
+        isAdminModeActive = false;
+        document.body.classList.remove('admin-mode-active');
+        adminToggle.classList.remove('admin-active-btn');
+        filterAndRender();
     }
 }
 
@@ -1582,20 +1440,10 @@ async function handleAdminLogin(e) {
     lucide.createIcons({ nodes: [submitBtn] });
 
     try {
-        let isValid = false;
-        if (window.cloud && window.cloud.ready) {
-            isValid = await window.cloud.verifyAdminPassword(password);
-        }
+        // window.admin.login() verify qua RPC server-side + mở phiên 30 phút.
+        const isValid = await window.admin.login(password);
 
         if (isValid) {
-            isAdminAuthenticated = true;
-            document.body.classList.add('admin-authenticated');
-            // Thêm chấm xanh chỉ báo đã xác thực
-            if (!adminToggle.querySelector('.admin-authenticated-indicator')) {
-                const dot = document.createElement('span');
-                dot.className = 'admin-authenticated-indicator';
-                adminToggle.appendChild(dot);
-            }
             closeAdminLoginModal();
             // Tự động bật admin mode sau khi đăng nhập
             if (!isAdminModeActive) toggleAdminMode();
@@ -1622,42 +1470,27 @@ async function handleAdminLogin(e) {
 
 // Xử lý đăng xuất Admin
 function handleAdminLogout() {
-    isAdminAuthenticated = false;
     isAdminModeActive = false;
-    document.body.classList.remove('admin-authenticated', 'admin-mode-active');
+    document.body.classList.remove('admin-mode-active');
     adminToggle.classList.remove('admin-active-btn');
-    // Xóa chấm xanh chỉ báo
-    const dot = adminToggle.querySelector('.admin-authenticated-indicator');
-    if (dot) dot.remove();
+    // window.admin.logout() xóa phiên + bắn onChange → applyAdminAuthUI gỡ chỉ báo
+    window.admin.logout();
     filterAndRender();
 }
 
-function addProductRow(name = '', buy = '', sell = '') {
-    const rowId = 'row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-    const rowHtml = `
-        <div class="product-price-row" id="${rowId}" style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" placeholder="Tên sản phẩm (ví dụ: Vàng Nhẫn)" class="prod-name" required value="${name.replace(/"/g, '&quot;')}" style="flex: 2; padding: 10px 12px; font-size: 13px; font-weight: 500; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary); outline: none;">
-            <input type="number" placeholder="Mua" class="prod-buy" required value="${buy}" style="flex: 1.2; padding: 10px 12px; font-size: 13px; font-weight: 500; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary); outline: none;">
-            <input type="number" placeholder="Bán" class="prod-sell" required value="${sell}" style="flex: 1.2; padding: 10px 12px; font-size: 13px; font-weight: 500; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary); outline: none;">
-            <button type="button" class="remove-prod-btn" style="background: transparent; border: none; color: var(--danger); cursor: pointer; display: flex; align-items: center; padding: 6px;" title="Xóa dòng">
-                <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
-            </button>
-        </div>
-    `;
-    productRowsContainer.insertAdjacentHTML('beforeend', rowHtml);
-    lucide.createIcons();
+// Tạo tên viết tắt tự động từ tên đơn vị (chữ cái đầu mỗi từ, tối đa 4 ký tự)
+function generateAcronym(name) {
+    const clean = name.replace(/\(.*?\)/g, ' ').trim();
+    const words = clean.split(/\s+/).filter(Boolean);
+    const ac = words.map(w => w[0]).join('').toUpperCase();
+    return ac.slice(0, 4) || 'WEB';
 }
 
 function openCrudModalForAdd() {
     crudModalTitle.textContent = "Thêm Đơn Vị Mới";
     providerIdInput.value = "";
     crudForm.reset();
-    
-    // Reset price mode fields
-    document.querySelector('input[name="priceMode"][value="auto"]').checked = true;
-    manualPriceSection.classList.add('hidden');
-    productRowsContainer.innerHTML = '';
-    
+
     crudModal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 }
@@ -1665,34 +1498,14 @@ function openCrudModalForAdd() {
 function openCrudModalForEdit(id) {
     const provider = goldProviders.find(p => p.id === id);
     if (!provider) return;
-    
+
     crudModalTitle.textContent = "Sửa Thông Tin Đơn Vị";
     providerIdInput.value = provider.id;
     providerNameInput.value = provider.name;
-    providerAcronymInput.value = provider.acronym;
     providerCategorySelect.value = provider.category;
-    providerDescTextarea.value = provider.description;
     providerUrlInput.value = provider.url;
     providerColorSelect.value = provider.color;
-    
-    // Set price mode
-    const mode = provider.priceMode || 'auto';
-    document.querySelector(`input[name="priceMode"][value="${mode}"]`).checked = true;
-    
-    productRowsContainer.innerHTML = '';
-    if (mode === 'manual') {
-        manualPriceSection.classList.remove('hidden');
-        if (provider.customPrices && provider.customPrices.length > 0) {
-            provider.customPrices.forEach(p => {
-                addProductRow(p.name, p.buy, p.sell);
-            });
-        } else {
-            addProductRow();
-        }
-    } else {
-        manualPriceSection.classList.add('hidden');
-    }
-    
+
     crudModal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 }
@@ -1704,86 +1517,63 @@ function closeCrudModal() {
 
 function handleCrudFormSubmit(e) {
     e.preventDefault();
-    
+
+    // Phiên admin có thể hết hạn khi modal đang mở → chặn ghi.
+    if (window.cloud && window.cloud.ready && !window.admin.isAdmin()) {
+        alert("Phiên admin đã hết hạn. Vui lòng đăng nhập lại.");
+        closeCrudModal();
+        return;
+    }
+
     const idVal = providerIdInput.value;
     const nameVal = providerNameInput.value.trim();
-    const acronymVal = providerAcronymInput.value.trim().toUpperCase();
     const categoryVal = providerCategorySelect.value;
-    const descVal = providerDescTextarea.value.trim();
     const urlVal = providerUrlInput.value.trim();
     const colorVal = providerColorSelect.value;
-    
-    // Get price mode
-    const selectedPriceMode = document.querySelector('input[name="priceMode"]:checked').value;
-    
-    // Get custom products & prices
-    const customPrices = [];
-    if (selectedPriceMode === 'manual') {
-        const rows = productRowsContainer.querySelectorAll('.product-price-row');
-        rows.forEach(row => {
-            const name = row.querySelector('.prod-name').value.trim();
-            const buy = parseFloat(row.querySelector('.prod-buy').value);
-            const sell = parseFloat(row.querySelector('.prod-sell').value);
-            if (name && !isNaN(buy) && !isNaN(sell)) {
-                customPrices.push({ name, buy, sell, change: 0 });
-            }
-        });
-        
-        // If manual mode is selected but no products entered, prompt a warning
-        if (customPrices.length === 0) {
-            alert("Bạn đã chọn chế độ tự nhập thủ công nhưng chưa thêm sản phẩm hợp lệ. Hệ thống sẽ tạm thời chuyển về tự động.");
-            document.querySelector('input[name="priceMode"][value="auto"]').checked = true;
-            return;
-        }
-    }
-    
+
     if (idVal) {
-        // Edit Mode: update existing provider
+        // Edit: chỉ cập nhật tên/phân loại/website/màu. Giữ nguyên acronym, mô tả, giá.
         const idNum = parseInt(idVal);
         const index = goldProviders.findIndex(p => p.id === idNum);
         if (index !== -1) {
             goldProviders[index].name = nameVal;
-            goldProviders[index].acronym = acronymVal;
             goldProviders[index].category = categoryVal;
-            goldProviders[index].description = descVal;
             goldProviders[index].url = urlVal;
             goldProviders[index].color = colorVal;
-            goldProviders[index].priceMode = selectedPriceMode;
-            goldProviders[index].customPrices = selectedPriceMode === 'manual' ? customPrices : null;
-            
-            // Sync to Supabase
+
+            // Sync to Supabase (ghi qua RPC kèm password phiên admin)
             if (window.cloud && window.cloud.ready) {
-                window.cloud.upsertProvider(goldProviders[index]).catch(err => console.error("Lỗi đồng bộ Supabase khi cập nhật:", err));
+                window.cloud.upsertProvider(goldProviders[index], window.admin.getPassword()).catch(err => console.error("Lỗi đồng bộ Supabase khi cập nhật:", err));
             }
         }
     } else {
-        // Add Mode: generate ID and create new provider object
+        // Add: tạo ID mới; acronym auto, mô tả rỗng, giá tự động.
         const maxId = goldProviders.reduce((max, p) => p.id > max ? p.id : max, 0);
         const newProvider = {
             id: maxId + 1,
             name: nameVal,
-            acronym: acronymVal,
+            acronym: generateAcronym(nameVal),
             category: categoryVal,
-            description: descVal,
+            description: '',
             url: urlVal,
             color: colorVal,
-            priceMode: selectedPriceMode,
-            customPrices: selectedPriceMode === 'manual' ? customPrices : null
+            priceMode: 'auto',
+            customPrices: null
         };
         goldProviders.push(newProvider);
-        
-        // Sync to Supabase
+
+        // Sync to Supabase (ghi qua RPC kèm password phiên admin)
         if (window.cloud && window.cloud.ready) {
-            window.cloud.upsertProvider(newProvider).catch(err => console.error("Lỗi đồng bộ Supabase khi thêm mới:", err));
+            window.cloud.upsertProvider(newProvider, window.admin.getPassword()).catch(err => console.error("Lỗi đồng bộ Supabase khi thêm mới:", err));
         }
     }
-    
+
     // Save to LocalStorage
     saveProvidersToLocalStorage();
-    
+
     // Recalculate prices
     updateComputedPrices();
-    
+
     // Close modal and refresh directory view
     closeCrudModal();
     filterAndRender();
@@ -1792,15 +1582,21 @@ function handleCrudFormSubmit(e) {
 function handleDeleteProvider(id) {
     const provider = goldProviders.find(p => p.id === id);
     if (!provider) return;
-    
+
+    // Phiên admin có thể hết hạn → chặn xóa.
+    if (window.cloud && window.cloud.ready && !window.admin.isAdmin()) {
+        alert("Phiên admin đã hết hạn. Vui lòng đăng nhập lại.");
+        return;
+    }
+
     const isConfirmed = confirm(`Bạn có chắc chắn muốn xóa đơn vị "${provider.name}" khỏi danh sách?`);
     if (isConfirmed) {
         goldProviders = goldProviders.filter(p => p.id !== id);
         saveProvidersToLocalStorage();
         
-        // Sync to Supabase
+        // Sync to Supabase (ghi qua RPC kèm password phiên admin)
         if (window.cloud && window.cloud.ready) {
-            window.cloud.softDeleteProvider(id).catch(err => console.error("Lỗi đồng bộ Supabase khi xóa:", err));
+            window.cloud.softDeleteProvider(id, window.admin.getPassword()).catch(err => console.error("Lỗi đồng bộ Supabase khi xóa:", err));
         }
         
         filterAndRender();

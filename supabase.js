@@ -45,27 +45,22 @@ const cloud = {
     }));
   },
 
-  // Lưu hoặc cập nhật một đơn vị
-  async upsertProvider(provider) {
+  // Lưu hoặc cập nhật một đơn vị — bắt buộc qua RPC kèm password (RLS chặn ghi trực tiếp).
+  async upsertProvider(provider, password) {
     if (!sb) return;
-    
-    const dbRow = {
-      id: String(provider.id), // Supabase primary key as text
-      name: provider.name,
-      acronym: provider.acronym,
-      category: provider.category,
-      description: provider.description,
-      url: provider.url,
-      color: provider.color,
-      price_mode: provider.priceMode || 'auto',
-      custom_prices: provider.customPrices || null,
-      is_deleted: false,
-      updated_at: new Date().toISOString()
-    };
 
-    const { error } = await sb
-      .from("gold_providers")
-      .upsert(dbRow, { onConflict: "id" });
+    const { error } = await sb.rpc("admin_upsert_provider", {
+      p_password: password,
+      p_id: String(provider.id),
+      p_name: provider.name,
+      p_acronym: provider.acronym,
+      p_category: provider.category,
+      p_description: provider.description,
+      p_url: provider.url,
+      p_color: provider.color,
+      p_price_mode: provider.priceMode || 'auto',
+      p_custom_prices: provider.customPrices || null
+    });
 
     if (error) {
       console.error("Lỗi khi upsert dữ liệu lên Supabase:", error);
@@ -73,14 +68,14 @@ const cloud = {
     }
   },
 
-  // Xóa mềm đơn vị (soft delete)
-  async softDeleteProvider(id) {
+  // Xóa mềm đơn vị (soft delete) — qua RPC kèm password.
+  async softDeleteProvider(id, password) {
     if (!sb) return;
-    
-    const { error } = await sb
-      .from("gold_providers")
-      .update({ is_deleted: true, updated_at: new Date().toISOString() })
-      .eq("id", String(id));
+
+    const { error } = await sb.rpc("admin_soft_delete_provider", {
+      p_password: password,
+      p_id: String(id)
+    });
 
     if (error) {
       console.error("Lỗi khi xóa mềm dữ liệu trên Supabase:", error);
@@ -103,29 +98,9 @@ const cloud = {
     }
 
     if ((count || 0) === 0) {
-      console.log("Cơ sở dữ liệu trống, đang nạp 41 đơn vị mặc định lên Supabase...");
-      const dbRows = defaultList.map(provider => ({
-        id: String(provider.id),
-        name: provider.name,
-        acronym: provider.acronym,
-        category: provider.category,
-        description: provider.description,
-        url: provider.url,
-        color: provider.color,
-        price_mode: provider.priceMode || 'auto',
-        custom_prices: provider.customPrices || null,
-        is_deleted: false
-      }));
-
-      const { error: insertError } = await sb
-        .from("gold_providers")
-        .insert(dbRows);
-
-      if (insertError) {
-        console.error("Lỗi khi nạp dữ liệu mặc định lên Supabase:", insertError);
-      } else {
-        console.log("Đã nạp thành công 41 đơn vị mặc định lên Supabase!");
-      }
+      // RLS khóa ghi trực tiếp → không seed từ client được.
+      // Nạp 41 đơn vị mặc định bằng SQL trong Supabase (xem supabase/seed.sql).
+      console.warn("Bảng gold_providers trống. Hãy seed dữ liệu mặc định bằng SQL (supabase/seed.sql).");
     }
   },
 
@@ -133,43 +108,15 @@ const cloud = {
   // ADMIN AUTHENTICATION
   // =========================================================================
 
-  // Lấy hash mật khẩu admin từ Supabase
-  async getAdminPasswordHash() {
-    if (!sb) return null;
-    const { data, error } = await sb
-      .from("app_settings")
-      .select("value")
-      .eq("key", "admin_password_hash")
-      .single();
-
-    if (error) {
-      console.error("Lỗi khi lấy mật khẩu admin:", error);
-      return null;
-    }
-    return data?.value || null;
-  },
-
-  // Xác thực mật khẩu admin: so sánh trực tiếp với giá trị trên Supabase
-  async verifyAdminPassword(plainPassword) {
+  // Kiểm password admin (server-side qua RPC, KHÔNG lộ password về client)
+  async verifyAdmin(password) {
     if (!sb) return false;
-    const storedPassword = await this.getAdminPasswordHash();
-    if (!storedPassword) return false;
-    return plainPassword === storedPassword;
-  },
-
-  // Cập nhật mật khẩu admin mới
-  async updateAdminPassword(newPassword) {
-    if (!sb) return false;
-
-    const { error } = await sb
-      .from("app_settings")
-      .upsert({ key: "admin_password_hash", value: newPassword, updated_at: new Date().toISOString() }, { onConflict: "key" });
-
+    const { data, error } = await sb.rpc("verify_admin", { p_password: password });
     if (error) {
-      console.error("Lỗi khi cập nhật mật khẩu admin:", error);
-      return false;
+      console.error("Lỗi khi xác thực admin:", error);
+      throw error;
     }
-    return true;
+    return !!data;
   }
 };
 
