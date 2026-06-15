@@ -22,5 +22,16 @@ alter table public.gold_providers enable row level security;
 drop policy if exists gold_providers_select on public.gold_providers;
 create policy gold_providers_select on public.gold_providers for select using (true);
 
--- Bật Realtime cho bảng gold_providers để đồng bộ tức thời (tùy chọn)
-alter publication supabase_realtime add table public.gold_providers;
+-- Bật Realtime cho bảng gold_providers để đồng bộ tức thời (tùy chọn).
+-- Bọc DO block để chạy lại nhiều lần không lỗi "already member of publication".
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'gold_providers'
+  ) then
+    alter publication supabase_realtime add table public.gold_providers;
+  end if;
+end $$;
