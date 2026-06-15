@@ -514,7 +514,8 @@ const YT_CHANNEL_PAGE = `https://www.youtube.com/${YT_CHANNEL_HANDLE}`;
 const YT_FALLBACK = {
     name: 'Minh FAT',
     avatar: 'https://yt3.googleusercontent.com/HzEPQaZZlF9WtjM8PkTHkfQ3JHqr6DxHYAfYym1TZCdZ5VYGQTzqQj0eDHkVIpz05AeTysVl=s176-c-k-c0x00ffffff-no-rj',
-    description: 'Kênh tin tức tài chính, kinh tế, đời sống cập nhật hàng ngày'
+    description: 'Kênh tin tức tài chính, kinh tế, đời sống cập nhật hàng ngày',
+    subscribers: '1.25K người đăng ký'
 };
 
 const CORS_PROXIES = [
@@ -533,7 +534,7 @@ async function fetchYouTubeChannelInfo() {
             const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
             if (now - parsed.cachedAt < sevenDaysInMs && parsed.name && parsed.avatar) {
                 console.log('Sử dụng thông tin kênh YouTube từ cache (localStorage)...');
-                applyYouTubeChannelInfo(parsed.name, parsed.avatar, parsed.description);
+                applyYouTubeChannelInfo(parsed.name, parsed.avatar, parsed.description, parsed.subscribers || YT_FALLBACK.subscribers);
                 return;
             }
         }
@@ -544,6 +545,7 @@ async function fetchYouTubeChannelInfo() {
     let name = YT_FALLBACK.name;
     let avatar = YT_FALLBACK.avatar;
     let description = YT_FALLBACK.description;
+    let subscribers = YT_FALLBACK.subscribers;
     let fetchSuccess = false;
 
     for (const proxyFn of CORS_PROXIES) {
@@ -558,7 +560,7 @@ async function fetchYouTubeChannelInfo() {
             if (authorName) name = authorName;
             fetchSuccess = true;
 
-            // 2. Fetch channel page → lấy avatar (og:image) + mô tả (og:description)
+            // 2. Fetch channel page → lấy avatar (og:image) + mô tả (og:description) + subscriber count
             try {
                 const pageResp = await fetch(proxyFn(YT_CHANNEL_PAGE), { signal: AbortSignal.timeout(8000) });
                 if (pageResp.ok) {
@@ -567,8 +569,14 @@ async function fetchYouTubeChannelInfo() {
                     if (imgMatch) avatar = imgMatch[1];
                     const descMatch = html.match(/<meta\s+property="og:description"\s+content="([^"]+)"/);
                     if (descMatch) description = descMatch[1];
+                    
+                    // Trích xuất số người đăng ký từ JSON ytInitialData trong trang YouTube
+                    const subMatch = html.match(/"subscriberCountText"\s*:\s*\{\s*"simpleText"\s*:\s*"([^"]+)"/);
+                    if (subMatch) {
+                        subscribers = subMatch[1];
+                    }
                 }
-            } catch (e) { /* avatar fallback */ }
+            } catch (e) { /* fallback */ }
 
             break; // Thành công, thoát vòng lặp proxy
         } catch (e) {
@@ -577,7 +585,7 @@ async function fetchYouTubeChannelInfo() {
     }
 
     // Cập nhật DOM
-    applyYouTubeChannelInfo(name, avatar, description);
+    applyYouTubeChannelInfo(name, avatar, description, subscribers);
 
     // Lưu cache nếu fetch thành công
     if (fetchSuccess) {
@@ -586,6 +594,7 @@ async function fetchYouTubeChannelInfo() {
                 name,
                 avatar,
                 description,
+                subscribers,
                 cachedAt: Date.now()
             }));
             console.log('Đã lưu thông tin kênh YouTube mới vào cache (localStorage).');
@@ -595,10 +604,11 @@ async function fetchYouTubeChannelInfo() {
     }
 }
 
-function applyYouTubeChannelInfo(name, avatar, description) {
+function applyYouTubeChannelInfo(name, avatar, description, subscribers) {
     const nameEl = document.getElementById('ytPromoName');
     const descEl = document.getElementById('ytPromoDesc');
     const avatarEl = document.getElementById('ytPromoAvatar');
+    const subsEl = document.getElementById('ytPromoSubsText');
 
     if (nameEl) {
         nameEl.innerHTML = `${name} <svg class="yt-verified-badge" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
@@ -608,6 +618,9 @@ function applyYouTubeChannelInfo(name, avatar, description) {
     }
     if (avatarEl) {
         avatarEl.innerHTML = `<img src="${avatar}" alt="${name}" loading="lazy">`;
+    }
+    if (subsEl) {
+        subsEl.textContent = subscribers;
     }
 }
 

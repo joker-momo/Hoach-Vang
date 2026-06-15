@@ -3,8 +3,8 @@
    ========================================================================== */
 :root {
     /* Fonts */
-    --font-primary: 'Inter', sans-serif;
-    --font-heading: 'Outfit', sans-serif;
+    --font-primary: 'Be Vietnam Pro', 'Inter', sans-serif;
+    --font-heading: 'Be Vietnam Pro', 'Outfit', sans-serif;
 
     /* Common Transitions */
     --transition-fast: 0.2s ease;
