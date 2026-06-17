@@ -923,7 +923,7 @@ async function fetchVietcombankRates() {
         let updateTime = '';
         const updateTd = doc.querySelector('.table-exchanges td[colspan="5"]');
         if (updateTd) {
-            const timeMatch = updateTd.textContent.trim().match(/Cập nhật lúc\s+([^\n\r]+)/i);
+            const timeMatch = updateTd.textContent.trim().match(/Cập nhật lúc\s+(\d{1,2}:\d{1,2}:\d{1,2}\s+\d{1,2}\/\d{1,2}\/\d{4})/i);
             if (timeMatch) updateTime = timeMatch[1].trim();
         }
 
