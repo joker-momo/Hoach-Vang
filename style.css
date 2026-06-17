@@ -2398,7 +2398,6 @@ body.admin-authenticated .admin-logout-btn {
 .vcb-rates-section {
     margin: 32px auto 0;
     width: 100%;
-    max-width: 800px; /* Restrict width for readable desktop layout */
     box-sizing: border-box;
 }
 
